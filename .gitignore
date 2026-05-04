@@ -1,0 +1,11 @@
+# API service (Nest)
+homeinspection-api/node_modules/
+homeinspection-api/dist/
+homeinspection-api/coverage/
+homeinspection-api/.env
+homeinspection-api/.env.*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
