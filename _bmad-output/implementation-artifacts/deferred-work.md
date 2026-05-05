@@ -1,0 +1,15 @@
+# Deferred work tracker
+
+## Deferred from: code review of 1-1-scaffold-nestjs-service-from-official-cli.md (2026-05-04)
+
+- **`PORT` env edge in bootstrap** (`homeinspection-api/src/main.ts`) — `process.env.PORT ?? 3000` does not coerce or validate; empty or non-numeric values can surface at `listen`. Defer to env/config hardening (e.g. Story 1.2).
+
+- **`npm run lint` uses `--fix`** (`homeinspection-api/package.json`) — CLI default mutates files on lint; defer changing until CI conventions are set.
+
+- **Package metadata placeholders** (`homeinspection-api/package.json`) — Empty `author`/`description` and `UNLICENSED` license; defer until product/legal pass.
+
+- **TypeScript `strict` umbrella** (`homeinspection-api/tsconfig.json`) — Granular strict flags without top-level `"strict": true`; defer alignment with project-context strictness expectations.
+
+## Deferred from: code review of 1-2-environment-configuration-module-and-env-example.md (2026-05-04)
+
+- **`validateEnv` merged return** (`homeinspection-api/src/config/env.validation.ts`) — `{ ...config, ...out }` keeps unvalidated keys from the host environment in the configuration object. Acceptable for Nest 11 + `@nestjs/config` here; tighten with an explicit allowlist if compliance requires a minimal env surface.

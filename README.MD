@@ -5,8 +5,9 @@ Purpose: Create a service that manages the tasks associated with a home inspecti
 The NestJS application lives in `homeinspection-api/`.
 
 - **Node:** use an LTS version in the range declared in `homeinspection-api/package.json` under `engines.node` (currently `>=20.18.0 <25`).
+- **Environment:** from `homeinspection-api/`, copy `cp .env.example .env` (Windows: `copy .env.example .env`) and adjust placeholders. The service **fails fast at boot** if required variables (see `.env.example`) are missing or invalid.
 - **Install and dev server:** `cd homeinspection-api` then `npm install` (if needed) and `npm run start:dev`.
-- **Production-style start (after build):** `npm run build` then `npm run start:prod` (listens on port `3000` unless `PORT` is set).
+- **Production-style start (after build):** `npm run build` then `npm run start:prod` (listens on port `3000` unless `PORT` is set in `.env` / the environment).
 
 Technologies: 
 1. NodeJS microservice using typescript
