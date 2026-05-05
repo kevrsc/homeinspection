@@ -94,6 +94,42 @@ describe('AppController (e2e)', () => {
       });
   });
 
+  it('exposes POST /v1/report/upload as a non-404 route shell', () => {
+    return request(app.getHttpServer())
+      .post('/v1/report/upload')
+      .expect(400)
+      .expect((res) => {
+        const requestId = res.headers['x-request-id'];
+        expect(requestId).toBeDefined();
+        expect(res.body).toEqual({
+          error: {
+            code: 'VALIDATION_FAILED',
+            message:
+              'Upload shell endpoint is active. File processing is not implemented yet.',
+            requestId,
+            details: { code: 'UPLOAD_SHELL_ONLY' },
+          },
+        });
+      });
+  });
+
+  it('does not treat unversioned /report/upload as supported', () => {
+    return request(app.getHttpServer())
+      .post('/report/upload')
+      .expect(404)
+      .expect((res) => {
+        const requestId = res.headers['x-request-id'];
+        expect(requestId).toBeDefined();
+        expect(res.body).toEqual({
+          error: {
+            code: 'NOT_FOUND',
+            message: 'Not Found',
+            requestId,
+          },
+        });
+      });
+  });
+
   afterEach(async () => {
     await app.close();
   });

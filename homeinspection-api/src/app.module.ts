@@ -8,6 +8,7 @@ import { ConfigModule } from '@nestjs/config';
 import { CommonModule } from './common/common.module';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { validateEnv } from './config/env.validation';
+import { ReportModule } from './modules/report/report.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -19,6 +20,7 @@ import { AppService } from './app.service';
       validate: validateEnv,
     }),
     CommonModule,
+    ReportModule,
   ],
   controllers: [AppController],
   providers: [AppService],
