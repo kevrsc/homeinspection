@@ -1,7 +1,14 @@
-import { BadRequestException, Controller, Post } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 
 @Controller('v1/report')
 export class ReportController {
+  @UseGuards(ApiKeyGuard)
   @Post('upload')
   uploadShell(): never {
     throw new BadRequestException({

@@ -97,6 +97,7 @@ describe('AppController (e2e)', () => {
   it('exposes POST /v1/report/upload as a non-404 route shell', () => {
     return request(app.getHttpServer())
       .post('/v1/report/upload')
+      .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
       .expect(400)
       .expect((res) => {
         const requestId = res.headers['x-request-id'];
@@ -108,6 +109,23 @@ describe('AppController (e2e)', () => {
               'Upload shell endpoint is active. File processing is not implemented yet.',
             requestId,
             details: { code: 'UPLOAD_SHELL_ONLY' },
+          },
+        });
+      });
+  });
+
+  it('returns 401 envelope when mock auth header is missing', () => {
+    return request(app.getHttpServer())
+      .post('/v1/report/upload')
+      .expect(401)
+      .expect((res) => {
+        const requestId = res.headers['x-request-id'];
+        expect(requestId).toBeDefined();
+        expect(res.body).toEqual({
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'Unauthorized',
+            requestId,
           },
         });
       });
