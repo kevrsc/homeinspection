@@ -23,6 +23,41 @@ describe('AppController (e2e)', () => {
       .expect('Hello World!');
   });
 
+  it('includes X-Request-Id on GET /', () => {
+    return request(app.getHttpServer())
+      .get('/')
+      .expect(200)
+      .expect((res) => {
+        const id = res.headers['x-request-id'];
+        expect(id).toBeDefined();
+        expect(id).toMatch(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+        );
+      });
+  });
+
+  it('echoes a valid client X-Request-Id', () => {
+    return request(app.getHttpServer())
+      .get('/')
+      .set('X-Request-Id', 'client-correlation-1')
+      .expect(200)
+      .expect((res) => {
+        expect(res.headers['x-request-id']).toBe('client-correlation-1');
+      });
+  });
+
+  it('includes X-Request-Id on 404 (unknown route)', () => {
+    return request(app.getHttpServer())
+      .get('/__e2e_no_such_route__')
+      .expect(404)
+      .expect((res) => {
+        expect(res.headers['x-request-id']).toBeDefined();
+        expect(res.headers['x-request-id']).toMatch(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+        );
+      });
+  });
+
   afterEach(async () => {
     await app.close();
   });

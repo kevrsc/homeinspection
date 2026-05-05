@@ -13,3 +13,7 @@
 ## Deferred from: code review of 1-2-environment-configuration-module-and-env-example.md (2026-05-04)
 
 - **`validateEnv` merged return** (`homeinspection-api/src/config/env.validation.ts`) — `{ ...config, ...out }` keeps unvalidated keys from the host environment in the configuration object. Acceptable for Nest 11 + `@nestjs/config` here; tighten with an explicit allowlist if compliance requires a minimal env surface.
+
+## Deferred from: code review of 1-3-request-correlation-id-on-every-http-request.md (2026-05-04)
+
+- **`LoggingInterceptor` logs `originalUrl`** (`homeinspection-api/src/common/interceptors/logging.interceptor.ts`) — Query strings may contain sensitive parameters in future; prefer path-only or structured redaction when logging matures.

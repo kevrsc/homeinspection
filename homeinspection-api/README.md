@@ -57,6 +57,14 @@ $ npm run test:e2e
 $ npm run test:cov
 ```
 
+## Request correlation ID
+
+Every HTTP response includes an **`X-Request-Id`** header with the correlation id used for that request (aligned with server logs). Clients **may** send their own id using **`x-request-id`** (or **`X-Request-Id`**); if the value is non-empty after trimming and no longer than **128** characters, the API echoes it in **`X-Request-Id`**. If the header is absent, empty, whitespace-only, or too long, the server generates a new id with `crypto.randomUUID()`.
+
+The header is also set in **`RequestIdMiddleware`** as soon as the id is resolved so **404** and other responses that bypass global interceptors still include **`X-Request-Id`**.
+
+Downstream code (and Story **1.4** error JSON) should read the same value from **`req.requestId`** or **`getRequestIdFromExecutionContext(context)`** so logs, headers, and error bodies stay consistent.
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
