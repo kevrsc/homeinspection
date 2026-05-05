@@ -65,6 +65,26 @@ The header is also set in **`RequestIdMiddleware`** as soon as the id is resolve
 
 Downstream code (and Story **1.4** error JSON) should read the same value from **`req.requestId`** or **`getRequestIdFromExecutionContext(context)`** so logs, headers, and error bodies stay consistent.
 
+## Error envelope contract (v1 foundation)
+
+All HTTP failures handled by the global exception filter return a deterministic JSON envelope:
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Not Found",
+    "requestId": "f5e5efef-13d6-45e2-bf6b-7d39f64db465",
+    "details": {}
+  }
+}
+```
+
+- `error.code` is a stable classification derived from HTTP status (`VALIDATION_FAILED`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `RATE_LIMITED`, `INTERNAL_ERROR`).
+- `error.requestId` always matches the `X-Request-Id` response header for the same request.
+- Internal failures are sanitized and never expose stack traces or implementation details.
+- OpenAPI examples and schemas in Story **2.8** must align with this runtime envelope.
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.

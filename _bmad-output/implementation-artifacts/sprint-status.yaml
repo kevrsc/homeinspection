@@ -38,7 +38,7 @@
 # so the versioned route shell can be validated with real auth behavior.
 
 generated: "2026-05-04"
-last_updated: "2026-05-04"
+last_updated: "2026-05-05"
 project: homeinspection
 project_key: NOKEY
 tracking_system: file-system
@@ -49,7 +49,7 @@ development_status:
   1-1-scaffold-nestjs-service-from-official-cli: done
   1-2-environment-configuration-module-and-env-example: done
   1-3-request-correlation-id-on-every-http-request: done
-  1-4-global-exception-filter-and-stable-error-json-envelope: backlog
+  1-4-global-exception-filter-and-stable-error-json-envelope: done
   1-5-versioned-v1-report-route-shell: backlog
   1-6-authentication-guard-with-mocked-prototype-mode: backlog
   1-7-configurable-rate-limiting-for-upload-route: backlog

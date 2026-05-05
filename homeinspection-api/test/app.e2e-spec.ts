@@ -1,8 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
+import { Controller, Get, INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
+
+@Controller('__e2e')
+class E2eThrowController {
+  @Get('throw')
+  throwUnexpected(): never {
+    throw new Error('e2e synthetic failure');
+  }
+}
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
@@ -10,6 +18,7 @@ describe('AppController (e2e)', () => {
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
+      controllers: [E2eThrowController],
     }).compile();
 
     app = moduleFixture.createNestApplication();
@@ -51,10 +60,37 @@ describe('AppController (e2e)', () => {
       .get('/__e2e_no_such_route__')
       .expect(404)
       .expect((res) => {
-        expect(res.headers['x-request-id']).toBeDefined();
-        expect(res.headers['x-request-id']).toMatch(
+        const requestId = res.headers['x-request-id'];
+        expect(requestId).toBeDefined();
+        expect(requestId).toMatch(
           /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
         );
+        expect(res.body).toEqual({
+          error: {
+            code: 'NOT_FOUND',
+            message: 'Not Found',
+            requestId,
+          },
+        });
+      });
+  });
+
+  it('returns stable envelope on 500 and preserves requestId parity', () => {
+    return request(app.getHttpServer())
+      .get('/__e2e/throw')
+      .expect(500)
+      .expect((res) => {
+        const requestId = res.headers['x-request-id'];
+        expect(requestId).toBeDefined();
+        expect(typeof requestId).toBe('string');
+        expect(res.body).toEqual({
+          error: {
+            code: 'INTERNAL_ERROR',
+            message:
+              'An unexpected error occurred. Please retry or contact support with the requestId.',
+            requestId,
+          },
+        });
       });
   });
 
