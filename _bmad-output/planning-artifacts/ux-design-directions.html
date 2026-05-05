@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>homeinspection — UX design directions</title>
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --bg: #f8fafc;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.5;
+    }
+    header {
+      padding: 1.25rem 1.5rem;
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    header h1 { margin: 0 0 0.25rem; font-size: 1.125rem; font-weight: 600; }
+    header p { margin: 0; font-size: 0.875rem; color: var(--muted); }
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-top: 0.75rem;
+    }
+    .tabs button {
+      border: 1px solid var(--line);
+      background: #f1f5f9;
+      padding: 0.4rem 0.65rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      color: var(--ink);
+    }
+    .tabs button:hover { background: #e2e8f0; }
+    .tabs button[aria-selected="true"] {
+      background: var(--ink);
+      color: #fff;
+      border-color: var(--ink);
+    }
+    main { padding: 1rem; max-width: 1200px; margin: 0 auto; }
+    .panel { display: none; animation: fade 0.2s ease; }
+    .panel.active { display: block; }
+    @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+    .mock-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+    .phone {
+      max-width: 380px;
+      margin: 0 auto;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
+      min-height: 520px;
+    }
+    .wide {
+      max-width: 720px;
+      margin: 0 auto;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
+      min-height: 480px;
+    }
+    .obs {
+      padding: 0.65rem 0.85rem;
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+      font-size: 0.8125rem;
+    }
+    .sec-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 0.75rem 0 0.35rem;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-weight: 600;
+      margin-right: 0.35rem;
+    }
+    .hint { font-size: 0.75rem; color: var(--muted); margin-top: 1rem; text-align: center; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>homeinspection — design direction explorations</h1>
+    <p>Future homeowner-facing observation review (Phase 2+). Same content structure; different visual weight and tone. Open this file in a browser.</p>
+    <div class="tabs" role="tablist" aria-label="Design directions">
+      <button type="button" role="tab" aria-selected="true" data-panel="d1">1 · Calm neutral</button>
+      <button type="button" role="tab" aria-selected="false" data-panel="d2">2 · Warm friendly</button>
+      <button type="button" role="tab" aria-selected="false" data-panel="d3">3 · Dense efficient</button>
+      <button type="button" role="tab" aria-selected="false" data-panel="d4">4 · High contrast</button>
+      <button type="button" role="tab" aria-selected="false" data-panel="d5">5 · Split detail</button>
+      <button type="button" role="tab" aria-selected="false" data-panel="d6">6 · Soft cards</button>
+    </div>
+  </header>
+  <main>
+    <!-- Direction 1: Calm neutral -->
+    <section id="d1" class="panel active" role="tabpanel">
+      <div class="mock-label">Direction 1 — Calm neutral list (default recommendation)</div>
+      <div class="phone" style="background:#fafbfc;color:#1e293b;border:1px solid #e8eef3;">
+        <div style="padding:14px 16px;border-bottom:1px solid #e8eef3;background:#fff;">
+          <div style="font-size:11px;color:#64748b;">Inspection · 123 Oak St</div>
+          <div style="font-size:17px;font-weight:600;margin-top:2px;">Observations</div>
+        </div>
+        <div style="padding:12px 14px;">
+          <div class="sec-title" style="color:#64748b;">Roof</div>
+          <div class="obs" style="background:#fff;border:1px solid #e8eef3;">
+            <span class="badge" style="background:#fef3c7;color:#92400e;">Review</span>
+            Shingle wear noted at ridge; monitor and plan replacement within 2–3 years.
+          </div>
+          <div class="obs" style="background:#fff;border:1px solid #e8eef3;">
+            <span class="badge" style="background:#dbeafe;color:#1e40af;">Info</span>
+            Flashing present; no active leak signs observed at inspection.
+          </div>
+          <div class="sec-title" style="color:#64748b;">Electrical</div>
+          <div class="obs" style="background:#fff;border:1px solid #e8eef3;">
+            <span class="badge" style="background:#fee2e2;color:#991b1b;">Action</span>
+            GFCI protection recommended in garage outlets.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Direction 2: Warm friendly -->
+    <section id="d2" class="panel" role="tabpanel" hidden>
+      <div class="mock-label">Direction 2 — Warm friendly (cream canvas, softer corners)</div>
+      <div class="phone" style="background:#fffbf5;color:#422006;border:1px solid #f5e6d3;">
+        <div style="padding:16px;border-bottom:1px solid #f0dfc8;background:linear-gradient(180deg,#fff7ed,#fffbf5);">
+          <div style="font-size:12px;color:#9a3412;">Your report</div>
+          <div style="font-size:18px;font-weight:700;margin-top:4px;">What we noticed</div>
+        </div>
+        <div style="padding:14px;">
+          <div class="sec-title" style="color:#9a3412;">Roof</div>
+          <div class="obs" style="background:#fff;border:1px solid #fcd9bd;border-radius:12px;">
+            <span class="badge" style="background:#ffedd5;color:#9a3412;">Heads up</span>
+            Shingle wear at ridge—plan for replacement in a few seasons.
+          </div>
+          <div class="obs" style="background:#fff;border:1px solid #fcd9bd;border-radius:12px;">
+            <span class="badge" style="background:#e0f2fe;color:#075985;">FYI</span>
+            Flashing looks intact; no active leak signs at inspection.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Direction 3: Dense efficient -->
+    <section id="d3" class="panel" role="tabpanel" hidden>
+      <div class="mock-label">Direction 3 — Dense efficient (power-user / integrator preview)</div>
+      <div class="wide" style="background:#fff;color:#0f172a;font-family:ui-monospace,Consolas,monospace;font-size:12px;">
+        <div style="padding:8px 12px;background:#0f172a;color:#e2e8f0;display:flex;justify-content:space-between;">
+          <span>observations.json</span><span>v1</span>
+        </div>
+        <div style="padding:10px 12px;border-bottom:1px solid #e2e8f0;display:flex;gap:8px;">
+          <span style="background:#f1f5f9;padding:2px 6px;border-radius:4px;">Roof</span>
+          <span style="background:#f1f5f9;padding:2px 6px;border-radius:4px;">Electrical</span>
+        </div>
+        <div style="padding:8px;">
+          <div style="display:grid;grid-template-columns:72px 1fr 64px;gap:4px;padding:4px 0;border-bottom:1px solid #f1f5f9;">
+            <span style="color:#64748b;">REV</span>
+            <span>Shingle wear ridge</span><span style="color:#b45309;">P2</span>
+          </div>
+          <div style="display:grid;grid-template-columns:72px 1fr 64px;gap:4px;padding:4px 0;border-bottom:1px solid #f1f5f9;">
+            <span style="color:#64748b;">INFO</span>
+            <span>Flashing intact</span><span style="color:#2563eb;">—</span>
+          </div>
+          <div style="display:grid;grid-template-columns:72px 1fr 64px;gap:4px;padding:4px 0;">
+            <span style="color:#64748b;">ACT</span>
+            <span>GFCI garage</span><span style="color:#b91c1c;">P1</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Direction 4: High contrast -->
+    <section id="d4" class="panel" role="tabpanel" hidden>
+      <div class="mock-label">Direction 4 — High contrast (accessibility-forward)</div>
+      <div class="phone" style="background:#000;color:#fafafa;border:2px solid #fff;">
+        <div style="padding:14px 16px;border-bottom:2px solid #333;">
+          <div style="font-size:11px;color:#a3a3a3;">Inspection</div>
+          <div style="font-size:18px;font-weight:800;">Observations</div>
+        </div>
+        <div style="padding:12px 14px;">
+          <div class="sec-title" style="color:#fde047;">Roof</div>
+          <div class="obs" style="background:#171717;border:2px solid #404040;">
+            <span class="badge" style="background:#fef08a;color:#000;">Review</span>
+            Shingle wear at ridge; plan replacement window 2–3 years.
+          </div>
+          <div class="obs" style="background:#171717;border:2px solid #404040;">
+            <span class="badge" style="background:#93c5fd;color:#000;">Info</span>
+            Flashing present; no active leak signs observed.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Direction 5: Split -->
+    <section id="d5" class="panel" role="tabpanel" hidden>
+      <div class="mock-label">Direction 5 — Split summary + detail (desktop-first)</div>
+      <div class="wide" style="background:#fff;color:#1e293b;display:grid;grid-template-columns:1fr 1fr;border:1px solid #e2e8f0;">
+        <div style="border-right:1px solid #e2e8f0;padding:12px;">
+          <div style="font-weight:700;margin-bottom:8px;">Sections</div>
+          <div style="padding:8px;background:#f8fafc;border-radius:8px;margin-bottom:6px;font-size:13px;">Roof <span style="color:#64748b;">(2)</span></div>
+          <div style="padding:8px;border-radius:8px;margin-bottom:6px;font-size:13px;">Electrical <span style="color:#64748b;">(1)</span></div>
+        </div>
+        <div style="padding:12px;">
+          <div style="font-size:12px;color:#64748b;">Roof · selected</div>
+          <div style="font-size:15px;font-weight:600;margin:6px 0;">Shingle wear at ridge</div>
+          <p style="font-size:13px;color:#334155;margin:0;">Monitor and plan replacement within 2–3 years. Not an emergency finding.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Direction 6: Soft cards -->
+    <section id="d6" class="panel" role="tabpanel" hidden>
+      <div class="mock-label">Direction 6 — Soft elevated cards (gentle depth)</div>
+      <div class="phone" style="background:linear-gradient(160deg,#eef2ff,#f8fafc);color:#1e1b4b;">
+        <div style="padding:18px;">
+          <div style="font-size:13px;opacity:0.8;">123 Oak St</div>
+          <div style="font-size:20px;font-weight:700;">Observations</div>
+        </div>
+        <div style="padding:0 14px 16px;">
+          <div class="sec-title" style="color:#4338ca;">Roof</div>
+          <div class="obs" style="background:#fff;box-shadow:0 4px 14px rgba(67,56,202,0.12);border:none;">
+            <span class="badge" style="background:#e0e7ff;color:#3730a3;">Review</span>
+            Shingle wear at ridge; schedule roofer consult when budgeting.
+          </div>
+          <div class="obs" style="background:#fff;box-shadow:0 4px 14px rgba(67,56,202,0.08);border:none;">
+            <span class="badge" style="background:#dbeafe;color:#1e40af;">Info</span>
+            Flashing present; no active leak signs observed.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <p class="hint">Evaluate: hierarchy, density, emotional tone, and accessibility. Combine elements if desired (e.g. Direction 1 structure + Direction 4 contrast).</p>
+  </main>
+  <script>
+    const tabs = document.querySelectorAll('[role="tab"]');
+    const panels = document.querySelectorAll('[role="tabpanel"]');
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const id = tab.getAttribute('data-panel');
+        tabs.forEach((t) => t.setAttribute("aria-selected", "false"));
+        tab.setAttribute("aria-selected", "true");
+        panels.forEach((p) => {
+          const on = p.id === id;
+          p.classList.toggle("active", on);
+          p.hidden = !on;
+        });
+      });
+    });
+  </script>
+</body>
+</html>
