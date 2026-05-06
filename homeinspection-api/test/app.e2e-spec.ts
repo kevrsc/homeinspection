@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
+import { setupApp } from '../src/app.setup';
 import { resetRateLimitStateForTests } from '../src/common/middleware/rate-limit.middleware';
 import { PdfExtractionError } from '../src/modules/report/extractors/pdf-observation-extractor.port';
 import { PDF_OBSERVATION_EXTRACTOR } from '../src/modules/report/extractors/pdf-observation-extractor.port';
@@ -78,6 +79,7 @@ describe('AppController (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
+    setupApp(app);
     loggerSpy = jest
       .spyOn(Logger.prototype, 'log')
       .mockImplementation(() => undefined);
@@ -101,6 +103,55 @@ describe('AppController (e2e)', () => {
         expect(id).toMatch(
           /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
         );
+      });
+  });
+
+  it('serves openapi contract json aligned to upload route', () => {
+    return request(app.getHttpServer())
+      .get('/openapi.json')
+      .expect(200)
+      .expect((res) => {
+        const body = res.body as {
+          paths?: Record<string, unknown>;
+          components?: {
+            securitySchemes?: Record<string, unknown>;
+          };
+        };
+        const uploadPath = body.paths?.['/v1/report/upload'] as
+          | {
+              post?: {
+                requestBody?: {
+                  content?: {
+                    'multipart/form-data'?: {
+                      schema?: {
+                        required?: string[];
+                      };
+                    };
+                  };
+                };
+                responses?: Record<string, unknown>;
+                security?: Array<Record<string, unknown>>;
+              };
+            }
+          | undefined;
+
+        expect(uploadPath).toBeDefined();
+        expect(uploadPath?.post?.responses?.['200']).toBeDefined();
+        expect(uploadPath?.post?.responses?.['400']).toBeDefined();
+        expect(uploadPath?.post?.responses?.['401']).toBeDefined();
+        expect(uploadPath?.post?.responses?.['408']).toBeDefined();
+        expect(uploadPath?.post?.responses?.['413']).toBeDefined();
+        expect(uploadPath?.post?.responses?.['422']).toBeDefined();
+        expect(uploadPath?.post?.responses?.['429']).toBeDefined();
+        expect(
+          uploadPath?.post?.requestBody?.content?.['multipart/form-data']
+            ?.schema?.required,
+        ).toContain('file');
+        expect(body.components?.securitySchemes?.mockAuth).toBeDefined();
+        const firstSecurityRequirement = uploadPath?.post?.security?.[0] as
+          | { mockAuth?: unknown[] }
+          | undefined;
+        expect(firstSecurityRequirement?.mockAuth).toBeDefined();
       });
   });
 

@@ -19,6 +19,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
+    "openapi:generate": "ts-node --files ./scripts/generate-openapi.ts",
+    "openapi:check": "npm run openapi:generate && node -e \"const { execSync } = require('node:child_process'); const status = execSync('git status --porcelain -- openapi/openapi.json', { encoding: 'utf8' }).trim(); if (status) { console.error('OpenAPI artifact is out of sync or untracked:\\n' + status); process.exit(1); }\"",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
@@ -27,9 +29,11 @@
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/swagger": "^11.4.2",
     "pdf-parse": "^2.4.5",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

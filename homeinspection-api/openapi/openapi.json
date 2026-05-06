@@ -1,0 +1,476 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/": {
+      "get": {
+        "operationId": "AppController_getHello",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/v1/report/upload": {
+      "post": {
+        "operationId": "ReportController_uploadShell",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Inspection report PDF file (max 20 MB)."
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful extraction response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pageCount": {
+                      "type": "number"
+                    },
+                    "sections": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "sectionName": {
+                            "type": "string"
+                          },
+                          "observations": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "text": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "text"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "sectionName",
+                          "observations"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "pageCount",
+                    "sections"
+                  ]
+                },
+                "example": {
+                  "pageCount": 1,
+                  "sections": [
+                    {
+                      "sectionName": "roof",
+                      "observations": [
+                        {
+                          "text": "Damaged shingle near ridge"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "requestId": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "oneOf": [
+                            {
+                              "type": "object"
+                            },
+                            {
+                              "type": "array"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_FAILED",
+                    "message": "Only PDF uploads are supported.",
+                    "requestId": "00000000-0000-4000-8000-000000000000",
+                    "details": {
+                      "code": "UPLOAD_PDF_REQUIRED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "requestId": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "oneOf": [
+                            {
+                              "type": "object"
+                            },
+                            {
+                              "type": "array"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                },
+                "example": {
+                  "error": {
+                    "code": "UNAUTHORIZED",
+                    "message": "Unauthorized",
+                    "requestId": "00000000-0000-4000-8000-000000000000"
+                  }
+                }
+              }
+            }
+          },
+          "408": {
+            "description": "Extraction timeout.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "requestId": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "oneOf": [
+                            {
+                              "type": "object"
+                            },
+                            {
+                              "type": "array"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                },
+                "example": {
+                  "error": {
+                    "code": "EXTRACTION_TIMEOUT",
+                    "message": "Upload processing timed out. Please retry with a smaller file or try again later.",
+                    "requestId": "00000000-0000-4000-8000-000000000000",
+                    "details": {
+                      "code": "UPLOAD_PROCESSING_TIMEOUT",
+                      "retryable": true,
+                      "timeoutMs": 30000
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Upload payload exceeds the configured file size limit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "requestId": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "oneOf": [
+                            {
+                              "type": "object"
+                            },
+                            {
+                              "type": "array"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_FAILED",
+                    "message": "File too large",
+                    "requestId": "00000000-0000-4000-8000-000000000000"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Extraction failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "requestId": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "oneOf": [
+                            {
+                              "type": "object"
+                            },
+                            {
+                              "type": "array"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                },
+                "example": {
+                  "error": {
+                    "code": "EXTRACTION_FAILED",
+                    "message": "PDF parsing failed. Please upload a different PDF file.",
+                    "requestId": "00000000-0000-4000-8000-000000000000",
+                    "details": {
+                      "code": "UPLOAD_PDF_PARSE_FAILED",
+                      "retryable": false
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "requestId": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "oneOf": [
+                            {
+                              "type": "object"
+                            },
+                            {
+                              "type": "array"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                },
+                "example": {
+                  "error": {
+                    "code": "RATE_LIMITED",
+                    "message": "Too Many Requests",
+                    "requestId": "00000000-0000-4000-8000-000000000000",
+                    "details": {
+                      "code": "RATE_LIMIT_EXCEEDED",
+                      "windowMinutes": 60,
+                      "maxRequests": 2
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "mockAuth": []
+          }
+        ],
+        "summary": "Upload inspection PDF and return section-linked observations.",
+        "tags": [
+          "report"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "homeinspection-api",
+    "description": "OpenAPI contract for v1 report upload endpoint.",
+    "version": "1.0.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "mockAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-mock-auth"
+      }
+    },
+    "schemas": {}
+  }
+}

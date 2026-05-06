@@ -11,11 +11,23 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import {
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiResponse,
+  ApiSecurity,
+  ApiTags,
+} from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { ReportUploadResponseDto } from './dto/extraction-response.dto';
 import { PdfExtractionError } from './extractors/pdf-observation-extractor.port';
 import { ReportService, UploadProcessingTimeoutError } from './report.service';
+import {
+  uploadErrorSchema,
+  uploadOpenApiExamples,
+} from '../../openapi/upload.openapi';
 
 type UploadedFileLike = {
   mimetype: string;
@@ -64,6 +76,7 @@ function getExtractionErrorDetails(error: PdfExtractionError): {
   return details;
 }
 
+@ApiTags('report')
 @Controller('v1/report')
 export class ReportController {
   constructor(private readonly reportService: ReportService) {}
@@ -76,6 +89,92 @@ export class ReportController {
   )
   @Post('upload')
   @HttpCode(200)
+  @ApiOperation({
+    summary: 'Upload inspection PDF and return section-linked observations.',
+  })
+  @ApiSecurity('mockAuth')
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Inspection report PDF file (max 20 MB).',
+        },
+      },
+      required: ['file'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Successful extraction response.',
+    schema: {
+      type: 'object',
+      properties: {
+        pageCount: { type: 'number' },
+        sections: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              sectionName: { type: 'string' },
+              observations: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    text: { type: 'string' },
+                  },
+                  required: ['text'],
+                },
+              },
+            },
+            required: ['sectionName', 'observations'],
+          },
+        },
+      },
+      required: ['pageCount', 'sections'],
+    },
+    example: uploadOpenApiExamples.success.value,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation failure.',
+    schema: uploadErrorSchema,
+    example: uploadOpenApiExamples.validationFailed.value,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized.',
+    schema: uploadErrorSchema,
+    example: uploadOpenApiExamples.unauthorized.value,
+  })
+  @ApiResponse({
+    status: 413,
+    description: 'Upload payload exceeds the configured file size limit.',
+    schema: uploadErrorSchema,
+    example: uploadOpenApiExamples.payloadTooLarge.value,
+  })
+  @ApiResponse({
+    status: 408,
+    description: 'Extraction timeout.',
+    schema: uploadErrorSchema,
+    example: uploadOpenApiExamples.extractionTimeout.value,
+  })
+  @ApiResponse({
+    status: 422,
+    description: 'Extraction failure.',
+    schema: uploadErrorSchema,
+    example: uploadOpenApiExamples.extractionFailed.value,
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Rate limited.',
+    schema: uploadErrorSchema,
+    example: uploadOpenApiExamples.rateLimited.value,
+  })
   async uploadShell(
     @UploadedFile() file?: unknown,
   ): Promise<ReportUploadResponseDto> {
