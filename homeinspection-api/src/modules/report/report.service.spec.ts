@@ -3,8 +3,23 @@ import {
   PdfExtractionError,
   PdfObservationExtractor,
 } from './extractors/pdf-observation-extractor.port';
+import { UploadProcessingTimeoutError } from './report.service';
 
 describe('ReportService', () => {
+  let previousTimeout: string | undefined;
+
+  beforeEach(() => {
+    previousTimeout = process.env.UPLOAD_PROCESSING_TIMEOUT_MS;
+  });
+
+  afterEach(() => {
+    if (previousTimeout === undefined) {
+      delete process.env.UPLOAD_PROCESSING_TIMEOUT_MS;
+      return;
+    }
+    process.env.UPLOAD_PROCESSING_TIMEOUT_MS = previousTimeout;
+  });
+
   it('maps extracted observations into section-linked response shape', async () => {
     const extractMock = jest.fn().mockResolvedValue({
       pageCount: 2,
@@ -23,7 +38,12 @@ describe('ReportService', () => {
     const result = await service.extractPreview(pdfBuffer);
 
     expect(extractMock).toHaveBeenCalledTimes(1);
-    expect(extractMock).toHaveBeenCalledWith(pdfBuffer);
+    const [calledBuffer, calledOptions] = extractMock.mock.calls[0] as [
+      Buffer,
+      { signal?: AbortSignal },
+    ];
+    expect(calledBuffer).toEqual(pdfBuffer);
+    expect(calledOptions.signal).toBeInstanceOf(AbortSignal);
     expect(result).toEqual({
       pageCount: 2,
       sections: [
@@ -143,5 +163,23 @@ describe('ReportService', () => {
     await expect(
       service.extractPreview(Buffer.from('%PDF-1.4\nfake')),
     ).rejects.toBeInstanceOf(PdfExtractionError);
+  });
+
+  it('throws UploadProcessingTimeoutError when extraction exceeds configured timeout', async () => {
+    process.env.UPLOAD_PROCESSING_TIMEOUT_MS = '1';
+    const extractMock = jest.fn(
+      () =>
+        new Promise<never>(() => {
+          // Intentionally unresolved to trigger timeout path.
+        }),
+    );
+    const extractor = {
+      extract: extractMock,
+    } as unknown as PdfObservationExtractor;
+    const service = new ReportService(extractor);
+
+    await expect(
+      service.extractPreview(Buffer.from('%PDF-1.4\nslow')),
+    ).rejects.toBeInstanceOf(UploadProcessingTimeoutError);
   });
 });

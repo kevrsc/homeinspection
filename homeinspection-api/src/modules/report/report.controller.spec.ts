@@ -1,7 +1,7 @@
 import { InternalServerErrorException } from '@nestjs/common';
 import { PdfExtractionError } from './extractors/pdf-observation-extractor.port';
 import { ReportController } from './report.controller';
-import { ReportService } from './report.service';
+import { ReportService, UploadProcessingTimeoutError } from './report.service';
 
 describe('ReportController', () => {
   const validFile = {
@@ -67,6 +67,28 @@ describe('ReportController', () => {
           code: 'UPLOAD_PDF_PARSE_FAILED',
           retryable: false,
           partial: { pageCount: 3 },
+        },
+      },
+    });
+  });
+
+  it('returns timeout classification when extraction exceeds processing budget', async () => {
+    const reportService = {
+      extractPreview: jest
+        .fn()
+        .mockRejectedValue(new UploadProcessingTimeoutError(25)),
+    } as unknown as ReportService;
+    const controller = new ReportController(reportService);
+
+    await expect(controller.uploadShell(validFile)).rejects.toMatchObject({
+      status: 408,
+      response: {
+        message:
+          'Upload processing timed out. Please retry with a smaller file or try again later.',
+        details: {
+          code: 'UPLOAD_PROCESSING_TIMEOUT',
+          retryable: true,
+          timeoutMs: 25,
         },
       },
     });

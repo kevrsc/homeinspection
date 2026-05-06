@@ -46,4 +46,16 @@ describe('PdfObservationExtractorAdapter', () => {
     );
     expect(destroyMock).toHaveBeenCalledTimes(1);
   });
+
+  it('aborts extraction when signal is already aborted', async () => {
+    const abortController = new AbortController();
+    abortController.abort();
+
+    await expect(
+      adapter.extract(Buffer.from('%PDF-1.4\nfake'), {
+        signal: abortController.signal,
+      }),
+    ).rejects.toBeInstanceOf(PdfExtractionError);
+    expect(destroyMock).toHaveBeenCalledTimes(1);
+  });
 });

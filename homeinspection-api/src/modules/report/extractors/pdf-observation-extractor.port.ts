@@ -19,7 +19,10 @@ export class PdfExtractionError extends Error {
 }
 
 export interface PdfObservationExtractor {
-  extract(pdfBuffer: Buffer): Promise<PdfExtractionResult>;
+  extract(
+    pdfBuffer: Buffer,
+    options?: { signal?: AbortSignal },
+  ): Promise<PdfExtractionResult>;
 }
 
 export const PDF_OBSERVATION_EXTRACTOR = Symbol('PDF_OBSERVATION_EXTRACTOR');

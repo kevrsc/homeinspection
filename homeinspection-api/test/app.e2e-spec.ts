@@ -20,8 +20,11 @@ describe('AppController (e2e)', () => {
   let extractMock: jest.Mock;
   const PARSE_FAIL_TEXT = 'force-parse-failure';
   const SHAPE_FAIL_TEXT = 'force-shape-failure';
+  const TIMEOUT_TEXT = 'force-timeout';
+  const previousTimeout = process.env.UPLOAD_PROCESSING_TIMEOUT_MS;
 
   beforeEach(async () => {
+    process.env.UPLOAD_PROCESSING_TIMEOUT_MS = '20';
     resetRateLimitStateForTests();
     extractMock = jest.fn((pdfBuffer: Buffer) => {
       if (pdfBuffer.toString('utf8').includes(PARSE_FAIL_TEXT)) {
@@ -33,6 +36,11 @@ describe('AppController (e2e)', () => {
         return Promise.resolve({
           pageCount: 1,
           observations: null,
+        });
+      }
+      if (pdfBuffer.toString('utf8').includes(TIMEOUT_TEXT)) {
+        return new Promise<never>(() => {
+          // Intentionally unresolved to trigger timeout classification.
         });
       }
 
@@ -167,6 +175,34 @@ describe('AppController (e2e)', () => {
             message: 'PDF parsing failed. Please upload a different PDF file.',
             requestId,
             details: { code: 'UPLOAD_PDF_PARSE_FAILED', retryable: false },
+          },
+        });
+      });
+  });
+
+  it('returns timeout envelope with deterministic timeout classification', () => {
+    return request(app.getHttpServer())
+      .post('/v1/report/upload')
+      .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
+      .attach('file', Buffer.from(`%PDF-1.4\n% ${TIMEOUT_TEXT}\n`), {
+        filename: 'timeout.pdf',
+        contentType: 'application/pdf',
+      })
+      .expect(408)
+      .expect((res) => {
+        const requestId = res.headers['x-request-id'];
+        expect(requestId).toBeDefined();
+        expect(res.body).toEqual({
+          error: {
+            code: 'EXTRACTION_TIMEOUT',
+            message:
+              'Upload processing timed out. Please retry with a smaller file or try again later.',
+            requestId,
+            details: {
+              code: 'UPLOAD_PROCESSING_TIMEOUT',
+              retryable: true,
+              timeoutMs: 20,
+            },
           },
         });
       });
@@ -338,6 +374,11 @@ describe('AppController (e2e)', () => {
   });
 
   afterEach(async () => {
+    if (previousTimeout === undefined) {
+      delete process.env.UPLOAD_PROCESSING_TIMEOUT_MS;
+    } else {
+      process.env.UPLOAD_PROCESSING_TIMEOUT_MS = previousTimeout;
+    }
     await app.close();
   });
 });

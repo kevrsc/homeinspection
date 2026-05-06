@@ -7,6 +7,13 @@ import {
 import type { PdfObservationExtractor } from './extractors/pdf-observation-extractor.port';
 import { ReportUploadResponseDto } from './dto/extraction-response.dto';
 
+export class UploadProcessingTimeoutError extends Error {
+  constructor(readonly timeoutMs: number) {
+    super(`Upload processing exceeded timeout (${timeoutMs}ms).`);
+    this.name = 'UploadProcessingTimeoutError';
+  }
+}
+
 @Injectable()
 export class ReportService {
   constructor(
@@ -15,8 +22,50 @@ export class ReportService {
   ) {}
 
   async extractPreview(pdfBuffer: Buffer): Promise<ReportUploadResponseDto> {
-    const extraction = await this.extractor.extract(pdfBuffer);
+    const timeoutMs = this.getTimeoutMs();
+    const extraction = await this.extractWithTimeout(pdfBuffer, timeoutMs);
     return this.toUploadResponse(extraction);
+  }
+
+  private async extractWithTimeout(
+    pdfBuffer: Buffer,
+    timeoutMs: number,
+  ): Promise<PdfExtractionResult> {
+    return new Promise<PdfExtractionResult>((resolve, reject) => {
+      const abortController = new AbortController();
+      let settled = false;
+      const finish = (handler: () => void): void => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        handler();
+      };
+
+      const timeoutHandle = setTimeout(() => {
+        abortController.abort();
+        finish(() => reject(new UploadProcessingTimeoutError(timeoutMs)));
+      }, timeoutMs);
+
+      this.extractor
+        .extract(pdfBuffer, { signal: abortController.signal })
+        .then((result) => {
+          finish(() => {
+            clearTimeout(timeoutHandle);
+            resolve(result);
+          });
+        })
+        .catch((error: unknown) => {
+          finish(() => {
+            clearTimeout(timeoutHandle);
+            if (error instanceof Error) {
+              reject(error);
+              return;
+            }
+            reject(new Error('Unknown extraction failure'));
+          });
+        });
+    });
   }
 
   private toUploadResponse(extraction: unknown): ReportUploadResponseDto {
@@ -84,5 +133,14 @@ export class ReportService {
         item.text.trim().length > 0
       );
     });
+  }
+
+  private getTimeoutMs(): number {
+    const configuredValue = process.env.UPLOAD_PROCESSING_TIMEOUT_MS ?? '';
+    if (/^[1-9]\d*$/.test(configuredValue)) {
+      return Number(configuredValue);
+    }
+
+    return 30000;
   }
 }

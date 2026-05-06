@@ -4,6 +4,7 @@ import {
   HttpCode,
   HttpException,
   InternalServerErrorException,
+  RequestTimeoutException,
   UnprocessableEntityException,
   UploadedFile,
   Post,
@@ -14,7 +15,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { ReportUploadResponseDto } from './dto/extraction-response.dto';
 import { PdfExtractionError } from './extractors/pdf-observation-extractor.port';
-import { ReportService } from './report.service';
+import { ReportService, UploadProcessingTimeoutError } from './report.service';
 
 type UploadedFileLike = {
   mimetype: string;
@@ -101,6 +102,17 @@ export class ReportController {
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
+      }
+      if (error instanceof UploadProcessingTimeoutError) {
+        throw new RequestTimeoutException({
+          message:
+            'Upload processing timed out. Please retry with a smaller file or try again later.',
+          details: {
+            code: 'UPLOAD_PROCESSING_TIMEOUT',
+            retryable: true,
+            timeoutMs: error.timeoutMs,
+          },
+        });
       }
       if (!(error instanceof PdfExtractionError)) {
         throw new InternalServerErrorException();

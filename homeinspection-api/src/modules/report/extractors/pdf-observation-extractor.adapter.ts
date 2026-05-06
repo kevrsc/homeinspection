@@ -8,10 +8,24 @@ import { PDFParse } from 'pdf-parse';
 
 @Injectable()
 export class PdfObservationExtractorAdapter implements PdfObservationExtractor {
-  async extract(pdfBuffer: Buffer): Promise<PdfExtractionResult> {
+  async extract(
+    pdfBuffer: Buffer,
+    options?: { signal?: AbortSignal },
+  ): Promise<PdfExtractionResult> {
     const parser = new PDFParse({ data: pdfBuffer });
+    if (options?.signal?.aborted) {
+      await parser.destroy();
+      throw new PdfExtractionError('PDF extraction aborted.');
+    }
     try {
-      const parsed = await parser.getText();
+      const abortPromise = new Promise<never>((_, reject) => {
+        options?.signal?.addEventListener(
+          'abort',
+          () => reject(new PdfExtractionError('PDF extraction aborted.')),
+          { once: true },
+        );
+      });
+      const parsed = await Promise.race([parser.getText(), abortPromise]);
       const lines = parsed.text
         .split('\n')
         .map((line) => line.trim())

@@ -84,6 +84,18 @@ function getCodeFromDetails(details: unknown): string | undefined {
     : undefined;
 }
 
+function mapDetailCodeToTopLevelCode(
+  detailCode: string | undefined,
+): string | undefined {
+  if (detailCode === 'UPLOAD_PDF_PARSE_FAILED') {
+    return 'EXTRACTION_FAILED';
+  }
+  if (detailCode === 'UPLOAD_PROCESSING_TIMEOUT') {
+    return 'EXTRACTION_TIMEOUT';
+  }
+  return undefined;
+}
+
 export function buildErrorEnvelope(
   exception: unknown,
   requestId: string,
@@ -94,10 +106,11 @@ export function buildErrorEnvelope(
     const { message, details } = getMessageAndDetails(response);
     const detailCode = getCodeFromDetails(details);
 
+    const mappedDetailCode = mapDetailCodeToTopLevelCode(detailCode);
     const code =
-      detailCode === 'UPLOAD_PDF_PARSE_FAILED'
-        ? 'EXTRACTION_FAILED'
-        : (ERROR_CODE_BY_STATUS[statusCode] ?? INTERNAL_ERROR_CODE);
+      mappedDetailCode ??
+      ERROR_CODE_BY_STATUS[statusCode] ??
+      INTERNAL_ERROR_CODE;
     return {
       statusCode,
       body: {

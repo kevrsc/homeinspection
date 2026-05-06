@@ -2,6 +2,7 @@ import { HttpStatus } from '@nestjs/common';
 
 export const ERROR_CODE_BY_STATUS: Readonly<Record<number, string>> = {
   [HttpStatus.BAD_REQUEST]: 'VALIDATION_FAILED',
+  [HttpStatus.REQUEST_TIMEOUT]: 'REQUEST_TIMEOUT',
   [HttpStatus.UNAUTHORIZED]: 'UNAUTHORIZED',
   [HttpStatus.FORBIDDEN]: 'FORBIDDEN',
   [HttpStatus.NOT_FOUND]: 'NOT_FOUND',
