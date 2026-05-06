@@ -1,6 +1,6 @@
 # Story 1.5: Versioned `v1` report route shell
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 

@@ -1,6 +1,6 @@
 # Story 1.6: Authentication guard with mocked prototype mode
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
