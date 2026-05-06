@@ -3,6 +3,7 @@ import { Controller, Get, INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
+import { resetRateLimitStateForTests } from '../src/common/middleware/rate-limit.middleware';
 
 @Controller('__e2e')
 class E2eThrowController {
@@ -16,6 +17,7 @@ describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeEach(async () => {
+    resetRateLimitStateForTests();
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
       controllers: [E2eThrowController],
@@ -126,6 +128,38 @@ describe('AppController (e2e)', () => {
             code: 'UNAUTHORIZED',
             message: 'Unauthorized',
             requestId,
+          },
+        });
+      });
+  });
+
+  it('returns 429 with rate-limit classification after configured budget', async () => {
+    const server = app.getHttpServer();
+    await request(server)
+      .post('/v1/report/upload')
+      .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
+      .expect(400);
+    await request(server)
+      .post('/v1/report/upload')
+      .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
+      .expect(400);
+    await request(server)
+      .post('/v1/report/upload')
+      .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
+      .expect(429)
+      .expect((res) => {
+        const requestId = res.headers['x-request-id'];
+        expect(requestId).toBeDefined();
+        expect(res.body).toEqual({
+          error: {
+            code: 'RATE_LIMITED',
+            message: 'Too Many Requests',
+            requestId,
+            details: {
+              code: 'RATE_LIMIT_EXCEEDED',
+              windowMinutes: 60,
+              maxRequests: 2,
+            },
           },
         });
       });

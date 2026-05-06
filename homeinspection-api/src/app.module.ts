@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { CommonModule } from './common/common.module';
+import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { validateEnv } from './config/env.validation';
 import { ReportModule } from './modules/report/report.module';
@@ -30,6 +31,10 @@ export class AppModule implements NestModule {
     consumer.apply(RequestIdMiddleware).forRoutes({
       path: '*',
       method: RequestMethod.ALL,
+    });
+    consumer.apply(RateLimitMiddleware).forRoutes({
+      path: 'v1/report/upload',
+      method: RequestMethod.POST,
     });
   }
 }
