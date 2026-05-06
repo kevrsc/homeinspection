@@ -55,8 +55,8 @@ development_status:
   1-7-configurable-rate-limiting-for-upload-route: done
   epic-1-retrospective: done
 
-  epic-2: backlog
-  2-1-multipart-upload-intake-and-pdf-validation: backlog
+  epic-2: in-progress
+  2-1-multipart-upload-intake-and-pdf-validation: review
   2-2-extractor-port-and-pdf-library-adapter: backlog
   2-3-section-linked-observation-response-model: backlog
   2-4-extraction-failure-handling-with-deterministic-errors: backlog

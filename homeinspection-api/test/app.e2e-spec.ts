@@ -100,6 +100,10 @@ describe('AppController (e2e)', () => {
     return request(app.getHttpServer())
       .post('/v1/report/upload')
       .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
+      .attach('file', Buffer.from('%PDF-1.4\n% mock e2e pdf\n'), {
+        filename: 'report.pdf',
+        contentType: 'application/pdf',
+      })
       .expect(400)
       .expect((res) => {
         const requestId = res.headers['x-request-id'];
@@ -111,6 +115,71 @@ describe('AppController (e2e)', () => {
               'Upload shell endpoint is active. File processing is not implemented yet.',
             requestId,
             details: { code: 'UPLOAD_SHELL_ONLY' },
+          },
+        });
+      });
+  });
+
+  it('returns 400 validation envelope when upload file is missing', () => {
+    return request(app.getHttpServer())
+      .post('/v1/report/upload')
+      .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
+      .expect(400)
+      .expect((res) => {
+        const requestId = res.headers['x-request-id'];
+        expect(requestId).toBeDefined();
+        expect(res.body).toEqual({
+          error: {
+            code: 'VALIDATION_FAILED',
+            message: 'PDF file is required.',
+            requestId,
+            details: { code: 'UPLOAD_FILE_REQUIRED' },
+          },
+        });
+      });
+  });
+
+  it('returns 400 validation envelope for non-PDF upload', () => {
+    return request(app.getHttpServer())
+      .post('/v1/report/upload')
+      .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
+      .attach('file', Buffer.from('plain text'), {
+        filename: 'not-a-pdf.txt',
+        contentType: 'text/plain',
+      })
+      .expect(400)
+      .expect((res) => {
+        const requestId = res.headers['x-request-id'];
+        expect(requestId).toBeDefined();
+        expect(res.body).toEqual({
+          error: {
+            code: 'VALIDATION_FAILED',
+            message: 'Only PDF uploads are supported.',
+            requestId,
+            details: { code: 'UPLOAD_PDF_REQUIRED' },
+          },
+        });
+      });
+  });
+
+  it('returns 400 validation envelope when magic bytes are not PDF', () => {
+    return request(app.getHttpServer())
+      .post('/v1/report/upload')
+      .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
+      .attach('file', Buffer.from('NOTPDF-bytes'), {
+        filename: 'fake.pdf',
+        contentType: 'application/pdf',
+      })
+      .expect(400)
+      .expect((res) => {
+        const requestId = res.headers['x-request-id'];
+        expect(requestId).toBeDefined();
+        expect(res.body).toEqual({
+          error: {
+            code: 'VALIDATION_FAILED',
+            message: 'Only PDF uploads are supported.',
+            requestId,
+            details: { code: 'UPLOAD_PDF_REQUIRED' },
           },
         });
       });
@@ -138,10 +207,18 @@ describe('AppController (e2e)', () => {
     await request(server)
       .post('/v1/report/upload')
       .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
+      .attach('file', Buffer.from('not-pdf'), {
+        filename: 'first.txt',
+        contentType: 'text/plain',
+      })
       .expect(400);
     await request(server)
       .post('/v1/report/upload')
       .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
+      .attach('file', Buffer.from('still-not-pdf'), {
+        filename: 'second.txt',
+        contentType: 'text/plain',
+      })
       .expect(400);
     await request(server)
       .post('/v1/report/upload')
