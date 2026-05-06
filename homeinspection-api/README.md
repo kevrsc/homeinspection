@@ -94,6 +94,23 @@ Story **2.9** publishes integration aids for consumer apps:
 
 These artifacts are runtime-aligned references for success and representative failure classes.
 
+## Extension ports & future phases
+
+Story **2.10** documents where later capabilities attach **without** changing the Phase 1 behavior of `POST /v1/report/upload`. Detailed seams live in [`src/modules/report/README.md`](src/modules/report/README.md).
+
+| Seam | Intent (FR37–FR39; NFR17—preserve migration path to async/persistent workflows) |
+|------|----------------------------|
+| **Persistence** | Durable storage of uploads, extraction snapshots, or audit rows hooks after successful orchestration in `ReportService` (or via outbound domain events consumed by a future persistence module). |
+| **Async / events** | Outbound messaging after validation/extraction outcomes; architecture expects dot-lower event names (e.g. `report.uploaded`) and versioned payloads with `schemaVersion` when persisted or queued—see planning architecture doc linked below. No queue worker is required for Phase 1 CI. |
+| **AI enrichment** | Optional enrichment behind an extra port or a composed extractor step **after** `PdfObservationExtractor` returns structured observations; preserve the HTTP JSON contract unless versioning explicitly evolves it. |
+| **Future HTTP / UI-track APIs** | Add versioned controllers/modules alongside this service (Epic 3 / FR40), rather than overloading the upload handler internals. |
+
+**Planning references** (repo root, relative from this folder: `../…`):
+
+- Architecture & phased roadmap: [`../_bmad-output/planning-artifacts/architecture.md`](../_bmad-output/planning-artifacts/architecture.md)
+
+**Contract anchor:** runtime response and error shapes remain documented in [`docs/api/failure-matrix.md`](docs/api/failure-matrix.md) and OpenAPI (`openapi/openapi.json`).
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
