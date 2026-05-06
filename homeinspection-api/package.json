@@ -5,7 +5,7 @@
   "author": "",
   "private": true,
   "engines": {
-    "node": ">=20.18.0 <25"
+    "node": ">=20.18.0 <21 || >=22.3.0 <25"
   },
   "license": "UNLICENSED",
   "scripts": {
@@ -27,6 +27,7 @@
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
+    "pdf-parse": "^2.4.5",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },

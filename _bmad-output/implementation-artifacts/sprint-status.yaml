@@ -57,7 +57,7 @@ development_status:
 
   epic-2: in-progress
   2-1-multipart-upload-intake-and-pdf-validation: done
-  2-2-extractor-port-and-pdf-library-adapter: backlog
+  2-2-extractor-port-and-pdf-library-adapter: done
   2-3-section-linked-observation-response-model: backlog
   2-4-extraction-failure-handling-with-deterministic-errors: backlog
   2-5-processing-timeout-guard-for-upload-pipeline: backlog

@@ -17,3 +17,7 @@
 ## Deferred from: code review of 1-3-request-correlation-id-on-every-http-request.md (2026-05-04)
 
 - **`LoggingInterceptor` logs `originalUrl`** (`homeinspection-api/src/common/interceptors/logging.interceptor.ts`) — Query strings may contain sensitive parameters in future; prefer path-only or structured redaction when logging matures.
+
+## Deferred from: code review of 2-2-extractor-port-and-pdf-library-adapter.md (2026-05-06)
+
+- **Missing explicit 413-to-validation error-code mapping** (`homeinspection-api/src/shared/errors/error-codes.ts`) — Oversize-upload handling existed before Story 2.2; add dedicated mapping when error taxonomy story is implemented.

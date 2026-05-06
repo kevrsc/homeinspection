@@ -96,7 +96,7 @@ describe('AppController (e2e)', () => {
       });
   });
 
-  it('exposes POST /v1/report/upload as a non-404 route shell', () => {
+  it('returns parse-failed classification for malformed PDF payloads', () => {
     return request(app.getHttpServer())
       .post('/v1/report/upload')
       .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
@@ -111,10 +111,9 @@ describe('AppController (e2e)', () => {
         expect(res.body).toEqual({
           error: {
             code: 'VALIDATION_FAILED',
-            message:
-              'Upload shell endpoint is active. File processing is not implemented yet.',
+            message: 'PDF parsing failed. Please upload a different PDF file.',
             requestId,
-            details: { code: 'UPLOAD_SHELL_ONLY' },
+            details: { code: 'UPLOAD_PDF_PARSE_FAILED' },
           },
         });
       });
