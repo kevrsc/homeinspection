@@ -1,5 +1,9 @@
 Purpose: Create a service that manages the tasks associated with a home inspection report.
 
+## Phase 2 UI planning
+
+Deferred homeowner-client UX requirements (UX-DR4–UX-DR10) are tracked in [`docs/ux-backlog.md`](docs/ux-backlog.md). Phase 1 remains API-first; see that file for boundaries vs `POST /v1/report/upload`.
+
 ## Run the API (Phase 1 scaffold)
 
 The NestJS application lives in `homeinspection-api/`.

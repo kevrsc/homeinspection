@@ -55,7 +55,7 @@ development_status:
   1-7-configurable-rate-limiting-for-upload-route: done
   epic-1-retrospective: done
 
-  epic-2: in-progress
+  epic-2: done
   2-1-multipart-upload-intake-and-pdf-validation: done
   2-2-extractor-port-and-pdf-library-adapter: done
   2-3-section-linked-observation-response-model: done
@@ -66,8 +66,8 @@ development_status:
   2-8-openapi-specification-aligned-with-runtime: done
   2-9-developer-facing-failure-matrix-and-fixture-json: done
   2-10-documented-extension-ports-for-future-phases: done
-  epic-2-retrospective: optional
+  epic-2-retrospective: done
 
-  epic-3: backlog
-  3-1-ux-spec-traceability-backlog-for-deferred-ui: backlog
-  epic-3-retrospective: optional
+  epic-3: done
+  3-1-ux-spec-traceability-backlog-for-deferred-ui: done
+  epic-3-retrospective: done

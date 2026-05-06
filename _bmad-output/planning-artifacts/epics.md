@@ -441,6 +441,8 @@ So that sprint planning can pick up UI work without re-deriving UX decisions (FR
 **Then** each of UX-DR4–UX-DR10 maps to at least one checklist item with suggested future story titles and test notes (accessibility, responsive, design direction reference to `ux-design-directions.html`).  
 **And** the checklist explicitly states Phase 1 API remains the system of record; UI is a separate delivery track.
 
+Reference backlog artifact: [`docs/ux-backlog.md`](../../docs/ux-backlog.md).
+
 ---
 
 ## Final validation summary

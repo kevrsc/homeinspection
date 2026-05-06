@@ -24,3 +24,7 @@
 ## Deferred from: code review of 2-2-extractor-port-and-pdf-library-adapter.md (2026-05-06)
 
 - **Missing explicit 413-to-validation error-code mapping** (`homeinspection-api/src/shared/errors/error-codes.ts`) — Oversize-upload handling existed before Story 2.2; add dedicated mapping when error taxonomy story is implemented.
+
+## Deferred from: code review of 3-1-ux-spec-traceability-backlog-for-deferred-ui.md (2026-05-06)
+
+- **Sprint status header comment drift** (`_bmad-output/implementation-artifacts/sprint-status.yaml`) — top comment metadata (`# last_updated`) diverges from YAML `last_updated`; cosmetic and pre-existing, defer cleanup until tracker-format maintenance pass.
