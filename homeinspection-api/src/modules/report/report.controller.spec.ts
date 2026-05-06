@@ -43,9 +43,31 @@ describe('ReportController', () => {
     const controller = new ReportController(reportService);
 
     await expect(controller.uploadShell(validFile)).rejects.toMatchObject({
+      status: 422,
       response: {
         message: 'PDF parsing failed. Please upload a different PDF file.',
-        details: { code: 'UPLOAD_PDF_PARSE_FAILED' },
+        details: { code: 'UPLOAD_PDF_PARSE_FAILED', retryable: false },
+      },
+    });
+  });
+
+  it('includes safe partial context on extraction failures when available', async () => {
+    const reportService = {
+      extractPreview: jest
+        .fn()
+        .mockRejectedValue(
+          new PdfExtractionError('bad', { cause: { pageCount: 3 } }),
+        ),
+    } as unknown as ReportService;
+    const controller = new ReportController(reportService);
+
+    await expect(controller.uploadShell(validFile)).rejects.toMatchObject({
+      response: {
+        details: {
+          code: 'UPLOAD_PDF_PARSE_FAILED',
+          retryable: false,
+          partial: { pageCount: 3 },
+        },
       },
     });
   });

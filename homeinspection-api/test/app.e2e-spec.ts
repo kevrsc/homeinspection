@@ -19,6 +19,7 @@ describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
   let extractMock: jest.Mock;
   const PARSE_FAIL_TEXT = 'force-parse-failure';
+  const SHAPE_FAIL_TEXT = 'force-shape-failure';
 
   beforeEach(async () => {
     resetRateLimitStateForTests();
@@ -27,6 +28,12 @@ describe('AppController (e2e)', () => {
         return Promise.reject(
           new PdfExtractionError('synthetic malformed pdf'),
         );
+      }
+      if (pdfBuffer.toString('utf8').includes(SHAPE_FAIL_TEXT)) {
+        return Promise.resolve({
+          pageCount: 1,
+          observations: null,
+        });
       }
 
       return Promise.resolve({
@@ -127,16 +134,39 @@ describe('AppController (e2e)', () => {
         filename: 'report.pdf',
         contentType: 'application/pdf',
       })
-      .expect(400)
+      .expect(422)
       .expect((res) => {
         const requestId = res.headers['x-request-id'];
         expect(requestId).toBeDefined();
         expect(res.body).toEqual({
           error: {
-            code: 'VALIDATION_FAILED',
+            code: 'EXTRACTION_FAILED',
             message: 'PDF parsing failed. Please upload a different PDF file.',
             requestId,
-            details: { code: 'UPLOAD_PDF_PARSE_FAILED' },
+            details: { code: 'UPLOAD_PDF_PARSE_FAILED', retryable: false },
+          },
+        });
+      });
+  });
+
+  it('returns deterministic extraction-failed envelope for invalid extraction shape', () => {
+    return request(app.getHttpServer())
+      .post('/v1/report/upload')
+      .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
+      .attach('file', Buffer.from(`%PDF-1.4\n% ${SHAPE_FAIL_TEXT}\n`), {
+        filename: 'shape-fail.pdf',
+        contentType: 'application/pdf',
+      })
+      .expect(422)
+      .expect((res) => {
+        const requestId = res.headers['x-request-id'];
+        expect(requestId).toBeDefined();
+        expect(res.body).toEqual({
+          error: {
+            code: 'EXTRACTION_FAILED',
+            message: 'PDF parsing failed. Please upload a different PDF file.',
+            requestId,
+            details: { code: 'UPLOAD_PDF_PARSE_FAILED', retryable: false },
           },
         });
       });

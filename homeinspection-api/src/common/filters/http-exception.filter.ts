@@ -73,6 +73,17 @@ function getMessageAndDetails(response: unknown): {
   return { message: 'Request failed', details };
 }
 
+function getCodeFromDetails(details: unknown): string | undefined {
+  if (!details || typeof details !== 'object') {
+    return undefined;
+  }
+
+  const detailsObject = details as { code?: unknown };
+  return typeof detailsObject.code === 'string'
+    ? detailsObject.code
+    : undefined;
+}
+
 export function buildErrorEnvelope(
   exception: unknown,
   requestId: string,
@@ -81,8 +92,12 @@ export function buildErrorEnvelope(
     const statusCode = exception.getStatus();
     const response = exception.getResponse();
     const { message, details } = getMessageAndDetails(response);
+    const detailCode = getCodeFromDetails(details);
 
-    const code = ERROR_CODE_BY_STATUS[statusCode] ?? INTERNAL_ERROR_CODE;
+    const code =
+      detailCode === 'UPLOAD_PDF_PARSE_FAILED'
+        ? 'EXTRACTION_FAILED'
+        : (ERROR_CODE_BY_STATUS[statusCode] ?? INTERNAL_ERROR_CODE);
     return {
       statusCode,
       body: {

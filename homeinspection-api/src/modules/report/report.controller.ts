@@ -4,6 +4,7 @@ import {
   HttpCode,
   HttpException,
   InternalServerErrorException,
+  UnprocessableEntityException,
   UploadedFile,
   Post,
   UseGuards,
@@ -29,6 +30,37 @@ function isUploadedFileLike(value: unknown): value is UploadedFileLike {
   return (
     typeof candidate.mimetype === 'string' && Buffer.isBuffer(candidate.buffer)
   );
+}
+
+function getExtractionErrorDetails(error: PdfExtractionError): {
+  code: 'UPLOAD_PDF_PARSE_FAILED';
+  retryable: false;
+  partial?: { pageCount: number };
+} {
+  const details: {
+    code: 'UPLOAD_PDF_PARSE_FAILED';
+    retryable: false;
+    partial?: { pageCount: number };
+  } = {
+    code: 'UPLOAD_PDF_PARSE_FAILED',
+    retryable: false,
+  };
+
+  const cause = (error as Error & { cause?: unknown }).cause;
+  if (typeof cause !== 'object' || cause === null) {
+    return details;
+  }
+
+  const partial = cause as { pageCount?: unknown };
+  if (
+    typeof partial.pageCount === 'number' &&
+    Number.isInteger(partial.pageCount) &&
+    partial.pageCount > 0
+  ) {
+    details.partial = { pageCount: partial.pageCount };
+  }
+
+  return details;
 }
 
 @Controller('v1/report')
@@ -73,9 +105,9 @@ export class ReportController {
       if (!(error instanceof PdfExtractionError)) {
         throw new InternalServerErrorException();
       }
-      throw new BadRequestException({
+      throw new UnprocessableEntityException({
         message: 'PDF parsing failed. Please upload a different PDF file.',
-        details: { code: 'UPLOAD_PDF_PARSE_FAILED' },
+        details: getExtractionErrorDetails(error),
       });
     }
   }
