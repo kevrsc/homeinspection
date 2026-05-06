@@ -64,7 +64,7 @@ development_status:
   2-6-automated-tests-with-pdf-fixtures: done
   2-7-structured-logging-for-outcomes-and-categories: done
   2-8-openapi-specification-aligned-with-runtime: done
-  2-9-developer-facing-failure-matrix-and-fixture-json: backlog
+  2-9-developer-facing-failure-matrix-and-fixture-json: done
   2-10-documented-extension-ports-for-future-phases: backlog
   epic-2-retrospective: optional
 

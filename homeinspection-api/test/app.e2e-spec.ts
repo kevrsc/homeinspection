@@ -23,6 +23,147 @@ describe('AppController (e2e)', () => {
   let extractMock: jest.Mock;
   let loggerSpy: jest.SpyInstance;
   const FIXTURES_DIR = join(__dirname, 'fixtures');
+  const JSON_FIXTURES_DIR = join(FIXTURES_DIR, 'json');
+  const FAILURE_MATRIX_DOC_PATH = join(
+    __dirname,
+    '..',
+    'docs',
+    'api',
+    'failure-matrix.md',
+  );
+  const EXPECTED_JSON_FIXTURE_FILES = [
+    'upload-success.json',
+    'upload-error-validation-missing-file.json',
+    'upload-error-validation-type.json',
+    'upload-error-validation-size.json',
+    'upload-error-auth.json',
+    'upload-error-rate-limit.json',
+    'upload-error-extraction.json',
+    'upload-error-timeout.json',
+  ] as const;
+
+  function extractFixtureFileNamesFromFailureMatrix(
+    matrixContent: string,
+  ): Set<string> {
+    const refs = new Set<string>();
+    const re = /test\/fixtures\/json\/([\w.-]+\.json)/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(matrixContent)) !== null) {
+      refs.add(m[1]);
+    }
+    return refs;
+  }
+
+  function assertJsonFixtureContract(
+    fixtureName: (typeof EXPECTED_JSON_FIXTURE_FILES)[number],
+    parsed: unknown,
+  ): void {
+    switch (fixtureName) {
+      case 'upload-success.json':
+        expect(parsed).toEqual({
+          pageCount: 1,
+          sections: [
+            {
+              sectionName: 'roof',
+              observations: [{ text: 'Damaged shingle near ridge' }],
+            },
+            {
+              sectionName: 'plumbing',
+              observations: [{ text: 'Slow leak at shutoff valve' }],
+            },
+          ],
+        });
+        return;
+      case 'upload-error-validation-missing-file.json':
+        expect(parsed).toEqual({
+          error: {
+            code: 'VALIDATION_FAILED',
+            message: 'PDF file is required.',
+            requestId: '00000000-0000-4000-8000-000000000000',
+            details: { code: 'UPLOAD_FILE_REQUIRED' },
+          },
+        });
+        return;
+      case 'upload-error-validation-type.json':
+        expect(parsed).toEqual({
+          error: {
+            code: 'VALIDATION_FAILED',
+            message: 'Only PDF uploads are supported.',
+            requestId: '00000000-0000-4000-8000-000000000000',
+            details: { code: 'UPLOAD_PDF_REQUIRED' },
+          },
+        });
+        return;
+      case 'upload-error-validation-size.json': {
+        expect(parsed).toMatchObject({
+          error: {
+            code: 'VALIDATION_FAILED',
+            message: 'Payload Too Large',
+            requestId: '00000000-0000-4000-8000-000000000000',
+          },
+        });
+        expect(
+          (parsed as { error?: Record<string, unknown> }).error,
+        ).not.toHaveProperty('details');
+        return;
+      }
+      case 'upload-error-auth.json': {
+        expect(parsed).toMatchObject({
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'Unauthorized',
+            requestId: '00000000-0000-4000-8000-000000000000',
+          },
+        });
+        expect(
+          (parsed as { error?: Record<string, unknown> }).error,
+        ).not.toHaveProperty('details');
+        return;
+      }
+      case 'upload-error-rate-limit.json':
+        expect(parsed).toEqual({
+          error: {
+            code: 'RATE_LIMITED',
+            message: 'Too Many Requests',
+            requestId: '00000000-0000-4000-8000-000000000000',
+            details: {
+              code: 'RATE_LIMIT_EXCEEDED',
+              windowMinutes: 60,
+              maxRequests: 2,
+            },
+          },
+        });
+        return;
+      case 'upload-error-extraction.json':
+        expect(parsed).toEqual({
+          error: {
+            code: 'EXTRACTION_FAILED',
+            message: 'PDF parsing failed. Please upload a different PDF file.',
+            requestId: '00000000-0000-4000-8000-000000000000',
+            details: {
+              code: 'UPLOAD_PDF_PARSE_FAILED',
+              retryable: false,
+            },
+          },
+        });
+        return;
+      case 'upload-error-timeout.json':
+        expect(parsed).toEqual({
+          error: {
+            code: 'EXTRACTION_TIMEOUT',
+            message:
+              'Upload processing timed out. Please retry with a smaller file or try again later.',
+            requestId: '00000000-0000-4000-8000-000000000000',
+            details: {
+              code: 'UPLOAD_PROCESSING_TIMEOUT',
+              retryable: true,
+              timeoutMs: 20,
+            },
+          },
+        });
+        return;
+    }
+  }
   const PARSE_FAIL_TEXT = 'force-parse-failure';
   const SHAPE_FAIL_TEXT = 'force-shape-failure';
   const TIMEOUT_TEXT = 'force-timeout';
@@ -153,6 +294,23 @@ describe('AppController (e2e)', () => {
           | undefined;
         expect(firstSecurityRequirement?.mockAuth).toBeDefined();
       });
+  });
+
+  it('publishes parseable JSON fixtures for success and failure classes', () => {
+    for (const fixtureName of EXPECTED_JSON_FIXTURE_FILES) {
+      const raw = readFileSync(join(JSON_FIXTURES_DIR, fixtureName), 'utf8');
+      const parsed = JSON.parse(raw) as unknown;
+      expect(typeof parsed).toBe('object');
+      expect(parsed).not.toBeNull();
+      assertJsonFixtureContract(fixtureName, parsed);
+    }
+  });
+
+  it('keeps failure matrix fixture references strictly aligned to fixture files', () => {
+    const matrixContent = readFileSync(FAILURE_MATRIX_DOC_PATH, 'utf8');
+    const docRefs = extractFixtureFileNamesFromFailureMatrix(matrixContent);
+    const expected = new Set<string>(EXPECTED_JSON_FIXTURE_FILES);
+    expect(docRefs).toEqual(expected);
   });
 
   it('echoes a valid client X-Request-Id', () => {

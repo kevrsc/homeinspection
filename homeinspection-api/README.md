@@ -85,6 +85,15 @@ All HTTP failures handled by the global exception filter return a deterministic 
 - Internal failures are sanitized and never expose stack traces or implementation details.
 - OpenAPI examples and schemas in Story **2.8** must align with this runtime envelope.
 
+## Developer failure matrix and JSON fixtures
+
+Story **2.9** publishes integration aids for consumer apps:
+
+- Failure matrix: `docs/api/failure-matrix.md`
+- Copy-paste JSON fixtures: `test/fixtures/json/`
+
+These artifacts are runtime-aligned references for success and representative failure classes.
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.

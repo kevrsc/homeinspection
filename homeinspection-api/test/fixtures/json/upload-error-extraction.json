@@ -1,0 +1,11 @@
+{
+  "error": {
+    "code": "EXTRACTION_FAILED",
+    "message": "PDF parsing failed. Please upload a different PDF file.",
+    "requestId": "00000000-0000-4000-8000-000000000000",
+    "details": {
+      "code": "UPLOAD_PDF_PARSE_FAILED",
+      "retryable": false
+    }
+  }
+}

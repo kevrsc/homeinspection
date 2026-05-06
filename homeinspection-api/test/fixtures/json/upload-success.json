@@ -1,0 +1,21 @@
+{
+  "pageCount": 1,
+  "sections": [
+    {
+      "sectionName": "roof",
+      "observations": [
+        {
+          "text": "Damaged shingle near ridge"
+        }
+      ]
+    },
+    {
+      "sectionName": "plumbing",
+      "observations": [
+        {
+          "text": "Slow leak at shutoff valve"
+        }
+      ]
+    }
+  ]
+}

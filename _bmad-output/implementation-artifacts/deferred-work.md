@@ -1,3 +1,6 @@
+## Deferred from: code review of 2-9-developer-facing-failure-matrix-and-fixture-json.md (2026-05-06)
+
+- Existing oversized-upload e2e assertion is regex-based and does not fully validate structured envelope fields; keep as deferred follow-up since it predates Story 2.9 changes.
 # Deferred work tracker
 
 ## Deferred from: code review of 1-1-scaffold-nestjs-service-from-official-cli.md (2026-05-04)

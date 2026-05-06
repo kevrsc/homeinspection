@@ -1,0 +1,12 @@
+{
+  "error": {
+    "code": "EXTRACTION_TIMEOUT",
+    "message": "Upload processing timed out. Please retry with a smaller file or try again later.",
+    "requestId": "00000000-0000-4000-8000-000000000000",
+    "details": {
+      "code": "UPLOAD_PROCESSING_TIMEOUT",
+      "retryable": true,
+      "timeoutMs": 20
+    }
+  }
+}

@@ -10,3 +10,16 @@ Deterministic fixtures used by e2e tests for Story 2.6.
 - `not-a-pdf.txt`: non-PDF content-type fixture.
 
 These fixtures are intentionally small and ASCII-only for deterministic CI behavior.
+
+## JSON contract fixtures
+
+Story 2.9 adds copy-paste JSON fixtures for success and failure classes under:
+
+- `json/upload-success.json`
+- `json/upload-error-validation-missing-file.json`
+- `json/upload-error-validation-type.json`
+- `json/upload-error-validation-size.json`
+- `json/upload-error-auth.json`
+- `json/upload-error-rate-limit.json`
+- `json/upload-error-extraction.json`
+- `json/upload-error-timeout.json`
