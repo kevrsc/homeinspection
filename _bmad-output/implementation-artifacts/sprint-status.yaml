@@ -62,7 +62,7 @@ development_status:
   2-4-extraction-failure-handling-with-deterministic-errors: done
   2-5-processing-timeout-guard-for-upload-pipeline: done
   2-6-automated-tests-with-pdf-fixtures: done
-  2-7-structured-logging-for-outcomes-and-categories: backlog
+  2-7-structured-logging-for-outcomes-and-categories: done
   2-8-openapi-specification-aligned-with-runtime: backlog
   2-9-developer-facing-failure-matrix-and-fixture-json: backlog
   2-10-documented-extension-ports-for-future-phases: backlog

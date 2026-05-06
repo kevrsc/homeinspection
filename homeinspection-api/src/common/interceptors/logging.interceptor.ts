@@ -5,8 +5,9 @@ import {
   Logger,
   NestInterceptor,
 } from '@nestjs/common';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { Observable } from 'rxjs';
+import { mapStatusToOutcomeCategory } from './logging-outcome-map';
 
 /**
  * HTTP access-style logging with the same correlation id as response headers.
@@ -19,11 +20,31 @@ export class LoggingInterceptor implements NestInterceptor {
     if (context.getType() !== 'http') {
       return next.handle();
     }
-    const req = context.switchToHttp().getRequest<Request>();
-    const requestId = req.requestId;
-    this.logger.log(
-      `[requestId=${requestId}] ${req.method} ${req.originalUrl ?? req.url}`,
-    );
+    const httpContext = context.switchToHttp();
+    const req = httpContext.getRequest<Request>();
+    const res = httpContext.getResponse<Response>();
+    const startedAt = Date.now();
+
+    res.once('finish', () => {
+      const statusCode = res.statusCode;
+      const { outcome, category } = mapStatusToOutcomeCategory(statusCode);
+      const durationMs = Math.max(0, Date.now() - startedAt);
+      this.logger.log(
+        JSON.stringify({
+          timestamp: new Date().toISOString(),
+          level: statusCode >= 500 ? 'error' : 'info',
+          message: 'http_request_complete',
+          requestId: req.requestId,
+          method: req.method,
+          path: req.originalUrl ?? req.url,
+          statusCode,
+          outcome,
+          category,
+          durationMs,
+        }),
+      );
+    });
+
     return next.handle();
   }
 }

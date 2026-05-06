@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { Controller, Get, INestApplication } from '@nestjs/common';
+import { Controller, Get, INestApplication, Logger } from '@nestjs/common';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import request from 'supertest';
@@ -20,6 +20,7 @@ class E2eThrowController {
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
   let extractMock: jest.Mock;
+  let loggerSpy: jest.SpyInstance;
   const FIXTURES_DIR = join(__dirname, 'fixtures');
   const PARSE_FAIL_TEXT = 'force-parse-failure';
   const SHAPE_FAIL_TEXT = 'force-shape-failure';
@@ -77,6 +78,9 @@ describe('AppController (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
+    loggerSpy = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
     await app.init();
   });
 
@@ -406,12 +410,74 @@ describe('AppController (e2e)', () => {
       });
   });
 
+  it('emits structured completion logs for success and representative failures', async () => {
+    type CompletionLog = {
+      statusCode: number;
+      requestId: string;
+      outcome: string;
+      category: string;
+      durationMs: number;
+      path: string;
+    };
+    const parseCompletionLog = (entry: string): CompletionLog =>
+      JSON.parse(entry) as CompletionLog;
+
+    loggerSpy.mockClear();
+    const server = app.getHttpServer();
+
+    await request(server)
+      .post('/v1/report/upload')
+      .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
+      .attach('file', validPdfFixture, {
+        filename: 'valid.pdf',
+        contentType: 'application/pdf',
+      })
+      .expect(200);
+
+    await request(server)
+      .post('/v1/report/upload')
+      .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
+      .expect(400);
+
+    const logCalls = loggerSpy.mock.calls as [unknown, ...unknown[]][];
+    const completionLogs = logCalls
+      .map((call) => call[0])
+      .filter((entry): entry is string => typeof entry === 'string')
+      .filter((entry) => entry.includes('"message":"http_request_complete"'))
+      .map(parseCompletionLog)
+      .filter((entry) => entry.path === '/v1/report/upload');
+
+    const byStatus = new Map<number, (typeof completionLogs)[number]>();
+    for (const log of completionLogs) {
+      if (!byStatus.has(log.statusCode)) {
+        byStatus.set(log.statusCode, log);
+      }
+    }
+
+    const successLog = byStatus.get(200);
+    expect(successLog).toBeDefined();
+    expect(successLog?.outcome).toBe('success');
+    expect(successLog?.category).toBe('extraction');
+    expect(typeof successLog?.requestId).toBe('string');
+
+    const validationLog = byStatus.get(400);
+    expect(validationLog).toBeDefined();
+    expect(validationLog?.outcome).toBe('validation_error');
+    expect(validationLog?.category).toBe('validation');
+    expect(typeof validationLog?.requestId).toBe('string');
+
+    for (const log of byStatus.values()) {
+      expect(log.durationMs).toBeGreaterThanOrEqual(0);
+    }
+  });
+
   afterEach(async () => {
     if (previousTimeout === undefined) {
       delete process.env.UPLOAD_PROCESSING_TIMEOUT_MS;
     } else {
       process.env.UPLOAD_PROCESSING_TIMEOUT_MS = previousTimeout;
     }
+    loggerSpy.mockRestore();
     await app.close();
   });
 });
