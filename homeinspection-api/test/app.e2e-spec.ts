@@ -4,6 +4,8 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { resetRateLimitStateForTests } from '../src/common/middleware/rate-limit.middleware';
+import { PdfExtractionError } from '../src/modules/report/extractors/pdf-observation-extractor.port';
+import { PDF_OBSERVATION_EXTRACTOR } from '../src/modules/report/extractors/pdf-observation-extractor.port';
 
 @Controller('__e2e')
 class E2eThrowController {
@@ -15,13 +17,34 @@ class E2eThrowController {
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
+  let extractMock: jest.Mock;
+  const PARSE_FAIL_TEXT = 'force-parse-failure';
 
   beforeEach(async () => {
     resetRateLimitStateForTests();
+    extractMock = jest.fn((pdfBuffer: Buffer) => {
+      if (pdfBuffer.toString('utf8').includes(PARSE_FAIL_TEXT)) {
+        return Promise.reject(
+          new PdfExtractionError('synthetic malformed pdf'),
+        );
+      }
+
+      return Promise.resolve({
+        pageCount: 1,
+        observations: [
+          { section: 'roof', text: 'Damaged shingle near ridge' },
+          { section: 'plumbing', text: 'Slow leak at shutoff valve' },
+        ],
+      });
+    });
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
       controllers: [E2eThrowController],
-    }).compile();
+    })
+      .overrideProvider(PDF_OBSERVATION_EXTRACTOR)
+      .useValue({ extract: extractMock })
+      .compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();
@@ -100,7 +123,7 @@ describe('AppController (e2e)', () => {
     return request(app.getHttpServer())
       .post('/v1/report/upload')
       .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
-      .attach('file', Buffer.from('%PDF-1.4\n% mock e2e pdf\n'), {
+      .attach('file', Buffer.from(`%PDF-1.4\n% ${PARSE_FAIL_TEXT}\n`), {
         filename: 'report.pdf',
         contentType: 'application/pdf',
       })
@@ -115,6 +138,32 @@ describe('AppController (e2e)', () => {
             requestId,
             details: { code: 'UPLOAD_PDF_PARSE_FAILED' },
           },
+        });
+      });
+  });
+
+  it('returns 200 with section-linked observation payload for valid PDF upload', () => {
+    return request(app.getHttpServer())
+      .post('/v1/report/upload')
+      .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
+      .attach('file', Buffer.from('%PDF-1.4\n% happy-path fixture\n'), {
+        filename: 'valid.pdf',
+        contentType: 'application/pdf',
+      })
+      .expect(200)
+      .expect((res) => {
+        expect(res.body).toEqual({
+          pageCount: 1,
+          sections: [
+            {
+              sectionName: 'roof',
+              observations: [{ text: 'Damaged shingle near ridge' }],
+            },
+            {
+              sectionName: 'plumbing',
+              observations: [{ text: 'Slow leak at shutoff valve' }],
+            },
+          ],
         });
       });
   });

@@ -9,6 +9,31 @@ describe('ReportController', () => {
     buffer: Buffer.from('%PDF-1.4\nmock'),
   };
 
+  it('returns section-linked extraction payload on successful parse', async () => {
+    const reportService = {
+      extractPreview: jest.fn().mockResolvedValue({
+        pageCount: 1,
+        sections: [
+          {
+            sectionName: 'roof',
+            observations: [{ text: 'Leak near vent' }],
+          },
+        ],
+      }),
+    } as unknown as ReportService;
+    const controller = new ReportController(reportService);
+
+    await expect(controller.uploadShell(validFile)).resolves.toEqual({
+      pageCount: 1,
+      sections: [
+        {
+          sectionName: 'roof',
+          observations: [{ text: 'Leak near vent' }],
+        },
+      ],
+    });
+  });
+
   it('returns parse-failed validation response when extraction fails', async () => {
     const reportService = {
       extractPreview: jest

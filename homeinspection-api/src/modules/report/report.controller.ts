@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Controller,
+  HttpCode,
   HttpException,
   InternalServerErrorException,
   UploadedFile,
@@ -10,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
+import { ReportUploadResponseDto } from './dto/extraction-response.dto';
 import { PdfExtractionError } from './extractors/pdf-observation-extractor.port';
 import { ReportService } from './report.service';
 
@@ -40,7 +42,10 @@ export class ReportController {
     }),
   )
   @Post('upload')
-  async uploadShell(@UploadedFile() file?: unknown): Promise<never> {
+  @HttpCode(200)
+  async uploadShell(
+    @UploadedFile() file?: unknown,
+  ): Promise<ReportUploadResponseDto> {
     if (!isUploadedFileLike(file)) {
       throw new BadRequestException({
         message: 'PDF file is required.',
@@ -60,7 +65,7 @@ export class ReportController {
     }
 
     try {
-      await this.reportService.extractPreview(file.buffer);
+      return await this.reportService.extractPreview(file.buffer);
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -73,11 +78,5 @@ export class ReportController {
         details: { code: 'UPLOAD_PDF_PARSE_FAILED' },
       });
     }
-
-    throw new BadRequestException({
-      message:
-        'Upload shell endpoint is active. File processing is not implemented yet.',
-      details: { code: 'UPLOAD_SHELL_ONLY' },
-    });
   }
 }
