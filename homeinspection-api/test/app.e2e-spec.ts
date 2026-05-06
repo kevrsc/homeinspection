@@ -1,5 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Controller, Get, INestApplication } from '@nestjs/common';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
@@ -18,10 +20,23 @@ class E2eThrowController {
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
   let extractMock: jest.Mock;
+  const FIXTURES_DIR = join(__dirname, 'fixtures');
   const PARSE_FAIL_TEXT = 'force-parse-failure';
   const SHAPE_FAIL_TEXT = 'force-shape-failure';
   const TIMEOUT_TEXT = 'force-timeout';
   const previousTimeout = process.env.UPLOAD_PROCESSING_TIMEOUT_MS;
+  const validPdfFixture = readFileSync(join(FIXTURES_DIR, 'valid-upload.pdf'));
+  const parseFailPdfFixture = readFileSync(
+    join(FIXTURES_DIR, 'parse-fail.pdf'),
+  );
+  const shapeFailPdfFixture = readFileSync(
+    join(FIXTURES_DIR, 'shape-fail.pdf'),
+  );
+  const timeoutPdfFixture = readFileSync(join(FIXTURES_DIR, 'timeout.pdf'));
+  const invalidMagicPdfFixture = readFileSync(
+    join(FIXTURES_DIR, 'invalid-magic.pdf'),
+  );
+  const nonPdfTextFixture = readFileSync(join(FIXTURES_DIR, 'not-a-pdf.txt'));
 
   beforeEach(async () => {
     process.env.UPLOAD_PROCESSING_TIMEOUT_MS = '20';
@@ -138,7 +153,7 @@ describe('AppController (e2e)', () => {
     return request(app.getHttpServer())
       .post('/v1/report/upload')
       .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
-      .attach('file', Buffer.from(`%PDF-1.4\n% ${PARSE_FAIL_TEXT}\n`), {
+      .attach('file', parseFailPdfFixture, {
         filename: 'report.pdf',
         contentType: 'application/pdf',
       })
@@ -161,7 +176,7 @@ describe('AppController (e2e)', () => {
     return request(app.getHttpServer())
       .post('/v1/report/upload')
       .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
-      .attach('file', Buffer.from(`%PDF-1.4\n% ${SHAPE_FAIL_TEXT}\n`), {
+      .attach('file', shapeFailPdfFixture, {
         filename: 'shape-fail.pdf',
         contentType: 'application/pdf',
       })
@@ -184,7 +199,7 @@ describe('AppController (e2e)', () => {
     return request(app.getHttpServer())
       .post('/v1/report/upload')
       .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
-      .attach('file', Buffer.from(`%PDF-1.4\n% ${TIMEOUT_TEXT}\n`), {
+      .attach('file', timeoutPdfFixture, {
         filename: 'timeout.pdf',
         contentType: 'application/pdf',
       })
@@ -212,7 +227,7 @@ describe('AppController (e2e)', () => {
     return request(app.getHttpServer())
       .post('/v1/report/upload')
       .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
-      .attach('file', Buffer.from('%PDF-1.4\n% happy-path fixture\n'), {
+      .attach('file', validPdfFixture, {
         filename: 'valid.pdf',
         contentType: 'application/pdf',
       })
@@ -257,7 +272,7 @@ describe('AppController (e2e)', () => {
     return request(app.getHttpServer())
       .post('/v1/report/upload')
       .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
-      .attach('file', Buffer.from('plain text'), {
+      .attach('file', nonPdfTextFixture, {
         filename: 'not-a-pdf.txt',
         contentType: 'text/plain',
       })
@@ -280,7 +295,7 @@ describe('AppController (e2e)', () => {
     return request(app.getHttpServer())
       .post('/v1/report/upload')
       .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
-      .attach('file', Buffer.from('NOTPDF-bytes'), {
+      .attach('file', invalidMagicPdfFixture, {
         filename: 'fake.pdf',
         contentType: 'application/pdf',
       })
@@ -296,6 +311,24 @@ describe('AppController (e2e)', () => {
             details: { code: 'UPLOAD_PDF_REQUIRED' },
           },
         });
+      });
+  });
+
+  it('returns validation classification for oversized upload payloads', () => {
+    return request(app.getHttpServer())
+      .post('/v1/report/upload')
+      .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
+      .attach('file', Buffer.alloc(20 * 1024 * 1024 + 1, 0x61), {
+        filename: 'oversized.pdf',
+        contentType: 'application/pdf',
+      })
+      .expect(413)
+      .expect((res) => {
+        expect(res.text).toEqual(
+          expect.stringMatching(
+            /"error":\{"code":"VALIDATION_FAILED","message":"[^"]+","requestId":"[^"]+"/,
+          ),
+        );
       });
   });
 
