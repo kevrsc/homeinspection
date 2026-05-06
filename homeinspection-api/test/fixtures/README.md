@@ -2,7 +2,9 @@
 
 Deterministic fixtures used by e2e tests for Story 2.6.
 
-- `valid-upload.pdf`: minimal valid-PDF marker used for success-path uploads.
+**Production extractor:** `homeinspection-api` e2e tests **mock** `PDF_OBSERVATION_EXTRACTOR`. These files are tiny stubs that usually **fail real `pdf-parse`** with errors such as `Invalid PDF structure.` They are still useful for multipart/auth/rate-limit paths and mocked extraction behavior. For **manual UI testing against `npm run start:dev`**, use a normal PDF that opens in a viewer (e.g. export any document to PDF)—**not** `valid-upload.pdf`—if you need HTTP **200** extraction.
+
+- `valid-upload.pdf`: minimal `%PDF` marker + skeleton objects for success-path uploads **under the mocked extractor only** (may **422** with the real adapter).
 - `parse-fail.pdf`: includes `force-parse-failure` marker for mocked extractor parse failure.
 - `shape-fail.pdf`: includes `force-shape-failure` marker for mocked invalid extraction shape.
 - `timeout.pdf`: includes `force-timeout` marker for mocked timeout scenario.

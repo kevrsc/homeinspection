@@ -4,6 +4,8 @@ Purpose: Create a service that manages the tasks associated with a home inspecti
 
 Deferred homeowner-client UX requirements (UX-DR4–UX-DR10) are tracked in [`docs/ux-backlog.md`](docs/ux-backlog.md). Phase 1 remains API-first; see that file for boundaries vs `POST /v1/report/upload`.
 
+The Phase 2 web scaffold lives in [`homeinspection-web/`](homeinspection-web/README.md) (Vite + React; proxies `/v1` to the API in dev).
+
 ## Run the API (Phase 1 scaffold)
 
 The NestJS application lives in `homeinspection-api/`.

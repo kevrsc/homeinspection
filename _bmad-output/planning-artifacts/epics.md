@@ -19,7 +19,7 @@ inputDocuments:
 
 ## Overview
 
-This document decomposes the PRD, Architecture, and UX Design Specification into implementable epics and user stories for the Phase 1 inspection PDF upload API (`POST /v1/report/upload`). Epics are ordered for incremental delivery: a governed, observable API shell first, then the extraction value stream, then explicit traceability for deferred UX-heavy work.
+This document decomposes the PRD, Architecture, and UX Design Specification into implementable epics and user stories for the Phase 1 inspection PDF upload API (`POST /v1/report/upload`). Epics are ordered for incremental delivery: a governed, observable API shell first, then the extraction value stream, then explicit traceability for deferred UX-heavy work, then a first-party Phase 2 homeowner web client that consumes the stable `v1` contract.
 
 ## Requirements Inventory
 
@@ -153,7 +153,7 @@ FR36: Epic 2 — Contract stability within `v1` (non-breaking additive changes o
 FR37: Epic 2 — Documented extension seams (ports) for persistence.
 FR38: Epic 2 — Documented extension seams for async processing.
 FR39: Epic 2 — Documented extension seams for AI analysis.
-FR40: Epic 3 — Deferred UI access path captured for Phase 2.
+FR40: Epic 3 — Deferred UI access path captured for Phase 2; Epic 4 — first-party homeowner web client (consumes existing `v1` upload API).
 
 NFR coverage: NFR1–NFR3, NFR8–NFR11 primarily Epic 2 stories (timeouts, tests, graceful failure). NFR4–NFR7, NFR15 Epic 1. NFR12–NFR14 Epic 1–2. NFR16–NFR17 Epic 2 (capacity/config) and architecture comments in Epic 2 extension story.
 
@@ -180,6 +180,16 @@ Product and engineering have an explicit, traceable backlog checklist that maps 
 
 **FRs covered:** FR40 (extension path for UI)  
 **UX-DRs primarily addressed:** UX-DR4, UX-DR5, UX-DR7, UX-DR8, UX-DR9, UX-DR10 (and consolidation of client-facing UX guidance not shipped in Epic 2 docs)
+
+### Epic 4: Phase 2 homeowner web client
+
+Homeowners can upload an inspection PDF through a first-party web client and review section-grouped observations with accessible, responsive UI patterns—using the existing Phase 1 upload API as the only integration surface until an explicit versioning story changes contracts.
+
+**FRs primarily reinforced at UI layer:** FR30–FR32 (clarity and orientation for homeowners consuming extracted output), FR33–FR34 (single-cycle workflow and honest limits as presented in UI copy), FR35 (no SDK required—direct HTTP from browser per integration guidance)  
+**NFRs primarily addressed:** NFR1–NFR3 and NFR8–NFR11 **as reflected in client-side wait UX, error handling, and telemetry hooks** (server remains source of truth for timeouts and errors); NFR12–NFR14 respected by not altering `v1` semantics from the UI track alone  
+**UX-DRs primarily addressed:** UX-DR4–UX-DR9 in shipped UI; UX-DR10 in published docs chrome when a docs site exists (Story 4.9)
+
+**Planning input:** [`docs/ux-backlog.md`](../../docs/ux-backlog.md); UX Design Specification *Component Strategy*, *Responsive Strategy*, *Accessibility Strategy*.
 
 ---
 
@@ -445,10 +455,142 @@ Reference backlog artifact: [`docs/ux-backlog.md`](../../docs/ux-backlog.md).
 
 ---
 
+## Epic 4: Phase 2 homeowner web client
+
+Homeowners complete Journey 1–2 from the UX specification through a browser: constrained upload, bounded wait, structured success or error outcomes, and a scannable observation experience—with persistent framing that the output is a starting to-do list, not legal advice. The API remains unchanged unless a dedicated contract/versioning epic alters it; this epic adds **client** capabilities only.
+
+### Story 4.1: Web client scaffold and API integration
+
+As a prototype maintainer,  
+I want a dedicated Phase 2 web package with toolchain, environment-based API base URL, and authenticated multipart upload to `POST /v1/report/upload`,  
+So that UI stories build on a consistent integration boundary without modifying `homeinspection-api` behavior.
+
+**Acceptance Criteria:**
+
+**Given** Epic 1–2 API is running with documented auth headers for prototype mode,  
+**When** a developer starts the web client locally,  
+**Then** they can configure base URL and API key (or equivalent prototype auth) via environment variables documented in the web package README.  
+**And** the client can submit a valid multipart upload and display raw success JSON or a minimal placeholder results route (refined in later stories).  
+**And** no changes to `homeinspection-api` routes or dependencies are required solely for this story beyond optional CORS configuration documented if browsers hit a different origin.
+
+### Story 4.2: Design tokens and responsive layout shell
+
+As a homeowner using phone or desktop,  
+I want typography, spacing, and breakpoints aligned to the UX specification (`sm` / `md` / `lg`),  
+So that later screens share a coherent Direction 1 baseline.
+
+**Acceptance Criteria:**
+
+**Given** the UX spec *Responsive Strategy* and *Breakpoint Strategy*,  
+**When** the app shell renders,  
+**Then** layout uses mobile-first single-column defaults and documents breakpoint tokens matching spec numbers.  
+**And** design tokens (color, type scale, radii) reference Direction 1 calm-neutral intent with documented overrides where Direction 4 contrast or Direction 5 split layouts apply.
+
+### Story 4.3: Upload flow with pre-flight constraints and bounded-wait messaging
+
+As a homeowner,  
+I want visible PDF-only and size constraints before I choose a file, plus clear processing feedback during upload and extraction,  
+So that I understand limits and why I may be waiting (UX-DR6).
+
+**Acceptance Criteria:**
+
+**Given** OpenAPI and failure-matrix documented limits (PDF, 20 MB),  
+**When** the upload view loads,  
+**Then** constraints are shown **before** file picker activation.  
+**When** a file is selected or uploading/processing,  
+**Then** the UI shows bounded-wait copy consistent with NFR1 expectations without implying guarantees the API does not provide.  
+**And** `prefers-reduced-motion` is honored for progress animations.
+
+### Story 4.4: Structured error panel with copy Request ID and live regions
+
+As a homeowner hitting validation, extraction, auth, or rate-limit failures,  
+I want action-first messaging mapped from API `code` and `message`, a visible `requestId`, and an easy copy affordance,  
+So that I can recover or share diagnostics (UX-DR5, UX-DR8 partial).
+
+**Acceptance Criteria:**
+
+**Given** a structured error envelope from the API,  
+**When** an upload fails,  
+**Then** the panel presents human-readable guidance derived from `message` and surfaces `code` where helpful.  
+**And** `requestId` is readable (not icon-only) with copy-to-clipboard support and screen reader text.  
+**And** asynchronous error arrival uses a polite live region pattern without stealing focus inappropriately.
+
+### Story 4.5: Observation list and section grouping (Direction 1 baseline)
+
+As a homeowner with a successful extraction,  
+I want observations grouped by section with badges that include text labels and non-color-only status cues,  
+So that I can scan results quickly on mobile or desktop (UX-DR4).
+
+**Acceptance Criteria:**
+
+**Given** a success response with sections and observations,  
+**When** the results view renders,  
+**Then** section headers and observation rows match Direction 1 list density from `ux-design-directions.html` unless an intentional documented deviation exists.  
+**And** list semantics support keyboard navigation through observations.  
+**And** badge semantics pair icon/color with visible text.
+
+### Story 4.6: Disclaimer strip on first results view
+
+As a homeowner reviewing extracted observations,  
+I want a persistent disclaimer that the output is a starting to-do list—not legal advice or a substitute for the full report,  
+So that expectations match PRD positioning (UX-DR7).
+
+**Acceptance Criteria:**
+
+**Given** successful extraction is shown,  
+**When** the user first reaches the results view in a session (or per product rule documented in the story),  
+**Then** a low-emphasis disclaimer strip is visible without hiding primary content.  
+**And** optional expanded detail does not bury the only copy of the disclaimer exclusively behind a modal.
+
+### Story 4.7: Responsive polish and optional lg master-detail layout
+
+As a homeowner on tablet or desktop,  
+I want layouts that scale to wider breakpoints without horizontal scroll on core flows,  
+So that optional master-detail observation browsing matches UX Direction 5 guidance where adopted (UX-DR9).
+
+**Acceptance Criteria:**
+
+**Given** narrowing from desktop to 320px width,  
+**When** walking upload → error → success paths,  
+**Then** core flows remain usable without horizontal scrolling.  
+**At `lg+`,** if master-detail is implemented,  
+**Then** focus order remains logical and sticky regions do not trap keyboard focus.
+
+### Story 4.8: WCAG 2.2 AA baseline and automated accessibility checks
+
+As an accessibility-conscious maintainer,  
+I want core flows to meet WCAG 2.2 AA targets with automated regression signal,  
+So that keyboard, contrast, and focus visibility requirements are sustained (UX-DR8).
+
+**Acceptance Criteria:**
+
+**Given** upload, error, and success views implemented,  
+**When** CI runs on the web package,  
+**Then** an agreed automated check (e.g. axe) runs against representative pages or components and fails on new serious violations per policy documented in the story.  
+**And** manual spot-check guidance (VoiceOver/NVDA) is documented for critical paths.  
+**And** focus visibility and contrast meet AA for default theme or documented Direction 4 overrides.
+
+### Story 4.9: Docs readability theme when a docs site ships (UX-DR10)
+
+As an integrator reading published API documentation,  
+I want prose width, heading hierarchy, and code block contrast aligned to UX-DR10,  
+So that developer docs match readability commitments when a site exists outside Phase 1 markdown-only paths.
+
+**Acceptance Criteria:**
+
+**Given** a docs site generator or theme is chosen (may be stubbed until infra exists),  
+**When** long-form pages render,  
+**Then** line length targets ~72ch where applicable and headings follow logical order.  
+**And** code samples meet contrast guidance for light theme (and dark if supported).  
+**If** no docs site is deployed in this epic’s timeframe,  
+**Then** this story documents the deferral rationale and leaves theme tokens ready for adoption.
+
+---
+
 ## Final validation summary
 
-- **FR coverage:** FR1–FR39 are implemented or explicitly documented in Epic 1–2 stories; FR40 is addressed by Epic 3 Story 3.1 as the UI extension planning hook.
-- **NFR coverage:** Addressed via Epic 1 (security, governance, contract shell) and Epic 2 (latency, reliability behavior, observability, contract determinism, evolution notes). NFR8 operational SLO is supported by tests and logging; continuous tuning is expected post-release.
+- **FR coverage:** FR1–FR39 are implemented or explicitly documented in Epic 1–2 stories; FR40 is addressed by Epic 3 Story 3.1 as the UI extension planning hook; FR30–FR35 homeowner and integrator outcomes are **expressed in UI** through Epic 4 where applicable without changing API semantics.
+- **NFR coverage:** Addressed via Epic 1 (security, governance, contract shell) and Epic 2 (latency, reliability behavior, observability, contract determinism, evolution notes). NFR8 operational SLO is supported by tests and logging; continuous tuning is expected post-release. Epic 4 reflects SLO and error behavior **in client UX** only.
 - **Starter template:** Story 1.1 satisfies Architecture requirement that Nest CLI scaffold is the first implementation story.
-- **Story ordering:** No story depends on a later story within its epic; Epic 2 assumes Epic 1 route and governance exist.
-- **UX-DR coverage:** UX-DR1–UX-DR3 and UX-DR6 covered in Epic 2 documentation stories; UX-DR4–UX-DR5, UX-DR7–UX-DR10 captured in Epic 3 Story 3.1 backlog checklist requirement.
+- **Story ordering:** No story depends on a later story within its epic; Epic 2 assumes Epic 1 route and governance exist; Epic 4 assumes Epic 1–3 artifacts (`docs/ux-backlog.md`, OpenAPI, failure matrix) remain available.
+- **UX-DR coverage:** UX-DR1–UX-DR3 and UX-DR6 covered in Epic 2 documentation stories; UX-DR4–UX-DR5, UX-DR7–UX-DR10 captured in Epic 3 Story 3.1 backlog checklist requirement; UX-DR4–UX-DR9 implemented in Epic 4 UI with UX-DR10 conditioned on docs-site delivery (Story 4.9).

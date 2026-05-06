@@ -1,0 +1,68 @@
+@import 'tailwindcss';
+
+/* -----------------------------------------------------------------------------
+   Theme tokens — Direction 1 (calm neutral). UX spec: Visual Design Foundation,
+   Design Direction Decision. Breakpoints: Breakpoint Strategy (must match px).
+   -------------------------------------------------------------------------- */
+
+@theme {
+  /* Explicit breakpoints (UX Design Specification — Tailwind-style defaults) */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+
+  --font-sans:
+    system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  /* Semantic colors — Direction 1 airy neutrals */
+  --color-page: #f8fafc;
+  --color-surface: #ffffff;
+  --color-border: #e2e8f0;
+  --color-fg: #0f172a;
+  --color-fg-muted: #64748b;
+  --color-link: #2563eb;
+  --color-danger: #b91c1c;
+  --color-caution: #b45309;
+
+  --radius-card: 6px;
+  --radius-input: 6px;
+}
+
+@layer base {
+  html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    @apply bg-page text-fg font-sans;
+    margin: 0;
+    min-height: 100vh;
+  }
+
+  code {
+    @apply rounded px-1 py-0.5 text-sm bg-surface border border-border text-fg;
+  }
+
+  pre {
+    @apply overflow-auto rounded-[var(--radius-card)] border border-border bg-surface p-4 text-sm leading-relaxed text-fg;
+  }
+
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  summary:focus-visible {
+    @apply outline-2 outline-offset-2 outline-link rounded-sm;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    @apply cursor-not-allowed opacity-60;
+  }
+}

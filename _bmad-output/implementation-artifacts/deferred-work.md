@@ -1,3 +1,13 @@
+## Deferred from: code review of 4-2-design-tokens-and-responsive-layout-shell.md (2026-05-06)
+
+- Breakpoint reference tables appear in both `homeinspection-web/README.md` and `homeinspection-web/docs/design-foundations.md` — intentional redundancy; avoid drift when UX widths change.
+
+- Breakpoint widths authored in `@theme` (`--breakpoint-*`) and `BREAKPOINTS_PX` — treat `@theme` as canonical; TS mirror exists for JS/tests only.
+
+- `ResultsPage` renders unbounded JSON — acceptable scaffold risk; revisit with observation UI / pagination.
+
+- WCAG contrast and focus audits incomplete for primary/disabled controls — defer to Story 4.8 automated accessibility baseline.
+
 ## Deferred from: code review of 2-9-developer-facing-failure-matrix-and-fixture-json.md (2026-05-06)
 
 - Existing oversized-upload e2e assertion is regex-based and does not fully validate structured envelope fields; keep as deferred follow-up since it predates Story 2.9 changes.
