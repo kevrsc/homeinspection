@@ -1,5 +1,5 @@
 # generated: 2026-05-04
-# last_updated: 2026-05-11 (Epic 4 complete pending retrospective)
+# last_updated: 2026-05-10 (Epic 5 backlog added)
 # project: homeinspection
 # project_key: NOKEY
 # tracking_system: file-system
@@ -38,7 +38,7 @@
 # so the versioned route shell can be validated with real auth behavior.
 
 generated: "2026-05-04"
-last_updated: "2026-05-11"
+last_updated: "2026-05-10"
 project: homeinspection
 project_key: NOKEY
 tracking_system: file-system
@@ -82,4 +82,12 @@ development_status:
   4-7-responsive-polish-and-optional-lg-master-detail-layout: done
   4-8-wcag-2-2-aa-baseline-and-automated-accessibility-checks: done
   4-9-docs-readability-theme-when-a-docs-site-ships-ux-dr10: done
-  epic-4-retrospective: optional
+  epic-4-retrospective: done
+
+  epic-5: backlog
+  5-1-docker-compose-llm-service-and-documentation: backlog
+  5-2-ai-summarization-port-and-http-adapter: backlog
+  5-3-prompt-and-structured-llm-output-schema: backlog
+  5-4-versioned-summarize-endpoint-openapi-auth-rate-limit: backlog
+  5-5-automated-tests-with-mock-llm-and-contract-coverage: backlog
+  epic-5-retrospective: optional

@@ -191,6 +191,16 @@ Homeowners can upload an inspection PDF through a first-party web client and rev
 
 **Planning input:** [`docs/ux-backlog.md`](../../docs/ux-backlog.md); UX Design Specification *Component Strategy*, *Responsive Strategy*, *Accessibility Strategy*.
 
+### Epic 5: AI-assisted observation summary
+
+API consumers can submit **section-grouped observations** (aligned with the existing upload success payload) and receive an **LLM-generated summary and prioritization** for homeowner-oriented clarity—without requiring optional persistence or async phases—using a **Docker-friendly LLM** runtime for local use and **mocked inference** in CI.
+
+**Planning input:** Root [`README.MD`](../../README.MD) Phase 4; [`sprint-change-proposal-2026-05-10.md`](sprint-change-proposal-2026-05-10.md).
+
+**FRs primarily reinforced:** FR39 (AI-assisted analysis path realized); extends homeowner/orientation intent from FR30–FR32 at the API layer.
+
+**NFRs primarily addressed:** NFR4–NFR7 (auth and safe errors), NFR9–NFR11 (deterministic failures/timeouts), NFR12–NFR14 (stable `v1` additive contract), with LLM-specific latency handled via explicit timeouts and structured errors.
+
 ---
 
 ## Epic 1: Governed API foundation
@@ -587,8 +597,84 @@ So that developer docs match readability commitments when a site exists outside 
 
 ---
 
+## Epic 5: AI-assisted observation summary
+
+Clients send observations produced by Phase 1 extraction (or future persisted reads) to a new **`v1` endpoint** that calls an **LLM** behind an application **port** and returns **structured JSON** (summary + prioritized items). Optional Phase 2 (MySQL) and Phase 3 (async) remain **out of scope** here; when persistence exists later, the same port can gain a repository-backed input adapter without breaking the HTTP contract chosen in this epic.
+
+### Story 5.1: Docker Compose LLM service and documentation
+
+As a prototype maintainer,  
+I want a documented way to run an LLM locally alongside the API (for example via Docker Compose),  
+So that developers can exercise real inference without relying on CI or external GPUs.
+
+**Acceptance Criteria:**
+
+**Given** the repository documents how to start the LLM service (image, model pull, ports, CPU vs GPU notes),  
+**When** a developer follows those steps,  
+**Then** they can reach the inference endpoint from the host network using values mirrored in `.env.example`.  
+**And** the default CI pipeline is **not** required to start this container (heavy integration remains optional/manual unless explicitly added later).
+
+### Story 5.2: AI summarization port and HTTP adapter
+
+As an API maintainer,  
+I want summarization implemented behind a domain/application **port** with an HTTP adapter (OpenAI-compatible or Ollama-style, per decision),  
+So that Nest controllers stay thin and LLM wiring stays replaceable and testable.
+
+**Acceptance Criteria:**
+
+**Given** configuration for base URL, model identifier, timeouts, and optional API key via environment variables,  
+**When** the application calls the port with normalized observation input,  
+**Then** the adapter returns provider errors as typed failures suitable for mapping to the stable error envelope (NFR6, NFR9).  
+**And** domain/application layers do not import Nest HTTP types or raw SDK singletons in lieu of the adapter boundary.
+
+### Story 5.3: Prompt and structured LLM output schema
+
+As a homeowner (via an API client),  
+I want the model output to **summarize** findings and **prioritize** what to address first in predictable JSON,  
+So that clients can render or store results without fragile free-text parsing.
+
+**Acceptance Criteria:**
+
+**Given** validated observation input (sections + observation texts),  
+**When** the LLM completes successfully,  
+**Then** the service returns a **documented JSON schema** (for example: executive summary string + ordered prioritized items with rationale fields—exact shape recorded in OpenAPI).  
+**And** the prompt instructs the model to stay grounded in supplied observations and to avoid inventing findings not present in the input.
+
+### Story 5.4: Versioned summarize endpoint with auth, rate limit, and OpenAPI
+
+As an API consumer,  
+I want a **`POST`-style `v1` route** (exact path chosen in implementation—e.g. under `v1/report`) that accepts a JSON body aligned with **`ReportUploadResponseDto` semantics** (`pageCount` + `sections[]` with `sectionName` and `observations[].text`),  
+So that I can chain upload → summarize with minimal transformation.
+
+**Acceptance Criteria:**
+
+**Given** Epic 1 guards and rate limiting patterns,  
+**When** the new route is called without auth or over quota,  
+**Then** responses match existing structured error semantics (`requestId`, classification).  
+**Given** valid auth and body,  
+**When** summarization succeeds or times out,  
+**Then** HTTP status and bodies are documented in OpenAPI alongside upload.  
+**And** request/response examples are added to the developer failure matrix or companion docs where upload examples already live.
+
+### Story 5.5: Automated tests with mock LLM and contract coverage
+
+As a prototype maintainer,  
+I want CI to verify the summarize route **without** a live LLM,  
+So that merges stay reliable and fast.
+
+**Acceptance Criteria:**
+
+**Given** tests substitute a mock/fake implementation of the summarization port,  
+**When** the test suite runs in CI,  
+**Then** at least one test covers successful structured response parsing/mapping.  
+**And** at least one test covers provider failure and timeout mapping to the stable error envelope.  
+**And** tests do not require network access to external LLM providers.
+
+---
+
 ## Final validation summary
 
+- **Epic 5 additive scope:** AI summarize endpoint and LLM integration (Stories 5.1–5.5) extend API capabilities after Epic 4; FR39 is exercised by delivery rather than “extension path only” documentation.
 - **FR coverage:** FR1–FR39 are implemented or explicitly documented in Epic 1–2 stories; FR40 is addressed by Epic 3 Story 3.1 as the UI extension planning hook; FR30–FR35 homeowner and integrator outcomes are **expressed in UI** through Epic 4 where applicable without changing API semantics.
 - **NFR coverage:** Addressed via Epic 1 (security, governance, contract shell) and Epic 2 (latency, reliability behavior, observability, contract determinism, evolution notes). NFR8 operational SLO is supported by tests and logging; continuous tuning is expected post-release. Epic 4 reflects SLO and error behavior **in client UX** only.
 - **Starter template:** Story 1.1 satisfies Architecture requirement that Nest CLI scaffold is the first implementation story.
