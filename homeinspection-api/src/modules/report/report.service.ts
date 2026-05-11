@@ -6,6 +6,12 @@ import {
 } from './extractors/pdf-observation-extractor.port';
 import type { PdfObservationExtractor } from './extractors/pdf-observation-extractor.port';
 import { ReportUploadResponseDto } from './dto/extraction-response.dto';
+import { enforceSummarizePayloadLimits } from './dto/summarize-request.validation';
+import {
+  AI_SUMMARIZER,
+  type AiSummarizer,
+} from './summarization/ai-summarizer.port';
+import type { ObservationSummaryResult } from './summarization/observation-summary.types';
 
 export class UploadProcessingTimeoutError extends Error {
   constructor(readonly timeoutMs: number) {
@@ -19,7 +25,29 @@ export class ReportService {
   constructor(
     @Inject(PDF_OBSERVATION_EXTRACTOR)
     private readonly extractor: PdfObservationExtractor,
+    @Inject(AI_SUMMARIZER)
+    private readonly summarizer: AiSummarizer,
   ) {}
+
+  async summarizeObservations(
+    input: ReportUploadResponseDto,
+    options?: { signal?: AbortSignal },
+  ): Promise<ObservationSummaryResult> {
+    return this.summarizer.summarize(input, options);
+  }
+
+  /**
+   * Single-shot PDF → summary: same extractor path as upload (`extractPreview`),
+   * then JSON summarize (`summarizeObservations`).
+   */
+  async summarizeFromPdfBuffer(
+    pdfBuffer: Buffer,
+    options?: { signal?: AbortSignal },
+  ): Promise<ObservationSummaryResult> {
+    const dto = await this.extractPreview(pdfBuffer);
+    enforceSummarizePayloadLimits(dto);
+    return this.summarizeObservations(dto, options);
+  }
 
   async extractPreview(pdfBuffer: Buffer): Promise<ReportUploadResponseDto> {
     const timeoutMs = this.getTimeoutMs();

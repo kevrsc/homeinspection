@@ -9,6 +9,12 @@ import { setupApp } from '../src/app.setup';
 import { resetRateLimitStateForTests } from '../src/common/middleware/rate-limit.middleware';
 import { PdfExtractionError } from '../src/modules/report/extractors/pdf-observation-extractor.port';
 import { PDF_OBSERVATION_EXTRACTOR } from '../src/modules/report/extractors/pdf-observation-extractor.port';
+import {
+  AI_SUMMARIZER,
+  SummarizationProviderError,
+} from '../src/modules/report/summarization/ai-summarizer.port';
+import type { ObservationSummaryResult } from '../src/modules/report/summarization/observation-summary.types';
+import { parseAndValidateSummarizeBody } from '../src/modules/report/dto/summarize-request.validation';
 
 @Controller('__e2e')
 class E2eThrowController {
@@ -21,6 +27,7 @@ class E2eThrowController {
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
   let extractMock: jest.Mock;
+  let summarizeMock: jest.Mock;
   let loggerSpy: jest.SpyInstance;
   const FIXTURES_DIR = join(__dirname, 'fixtures');
   const JSON_FIXTURES_DIR = join(FIXTURES_DIR, 'json');
@@ -181,6 +188,29 @@ describe('AppController (e2e)', () => {
   );
   const nonPdfTextFixture = readFileSync(join(FIXTURES_DIR, 'not-a-pdf.txt'));
 
+  const summarizeRequestBody: unknown = JSON.parse(
+    readFileSync(join(JSON_FIXTURES_DIR, 'upload-success.json'), 'utf8'),
+  );
+
+  const e2eMockObservationSummary: ObservationSummaryResult = {
+    executiveSummary:
+      'E2E mock summary: roof wear and plumbing leak per fixture observations.',
+    prioritizedItems: [
+      {
+        rank: 1,
+        title: 'Roof: damaged shingles near ridge',
+        rationale:
+          'Fixture observation text calls out ridge damage; verify before wet season.',
+      },
+      {
+        rank: 2,
+        title: 'Plumbing: slow leak at shutoff',
+        rationale:
+          'Fixture notes a valve leak; monitor and repair to avoid water damage.',
+      },
+    ],
+  };
+
   beforeEach(async () => {
     process.env.UPLOAD_PROCESSING_TIMEOUT_MS = '20';
     resetRateLimitStateForTests();
@@ -211,12 +241,16 @@ describe('AppController (e2e)', () => {
       });
     });
 
+    summarizeMock = jest.fn().mockResolvedValue(e2eMockObservationSummary);
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
       controllers: [E2eThrowController],
     })
       .overrideProvider(PDF_OBSERVATION_EXTRACTOR)
       .useValue({ extract: extractMock })
+      .overrideProvider(AI_SUMMARIZER)
+      .useValue({ summarize: summarizeMock })
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -256,6 +290,7 @@ describe('AppController (e2e)', () => {
           paths?: Record<string, unknown>;
           components?: {
             securitySchemes?: Record<string, unknown>;
+            schemas?: Record<string, unknown>;
           };
         };
         const uploadPath = body.paths?.['/v1/report/upload'] as
@@ -277,6 +312,49 @@ describe('AppController (e2e)', () => {
           | undefined;
 
         expect(uploadPath).toBeDefined();
+        const summarizePath = body.paths?.['/v1/report/summarize'] as
+          | {
+              post?: {
+                requestBody?: {
+                  content?: { 'application/json'?: { schema?: unknown } };
+                };
+                responses?: Record<string, unknown>;
+                security?: Array<Record<string, unknown>>;
+              };
+            }
+          | undefined;
+        expect(summarizePath?.post).toBeDefined();
+        expect(
+          summarizePath?.post?.requestBody?.content?.['application/json']
+            ?.schema,
+        ).toBeDefined();
+        expect(summarizePath?.post?.responses?.['200']).toBeDefined();
+        expect(summarizePath?.post?.responses?.['502']).toBeDefined();
+        const summarizeFilePath = body.paths?.['/v1/report/summarize/file'] as
+          | {
+              post?: {
+                operationId?: string;
+                requestBody?: {
+                  content?: {
+                    'multipart/form-data'?: {
+                      schema?: { required?: string[] };
+                    };
+                  };
+                };
+                responses?: Record<string, unknown>;
+              };
+            }
+          | undefined;
+        expect(summarizeFilePath?.post).toBeDefined();
+        expect(summarizeFilePath?.post?.operationId).toBe(
+          'reportSummarizeFromPdfFile',
+        );
+        expect(
+          summarizeFilePath?.post?.requestBody?.content?.['multipart/form-data']
+            ?.schema?.required,
+        ).toContain('file');
+        expect(summarizeFilePath?.post?.responses?.['200']).toBeDefined();
+        expect(summarizeFilePath?.post?.responses?.['502']).toBeDefined();
         expect(uploadPath?.post?.responses?.['200']).toBeDefined();
         expect(uploadPath?.post?.responses?.['400']).toBeDefined();
         expect(uploadPath?.post?.responses?.['401']).toBeDefined();
@@ -289,10 +367,184 @@ describe('AppController (e2e)', () => {
             ?.schema?.required,
         ).toContain('file');
         expect(body.components?.securitySchemes?.mockAuth).toBeDefined();
+        expect(body.components?.schemas?.ObservationSummary).toBeDefined();
+        expect(
+          body.components?.schemas?.PrioritizedObservationItem,
+        ).toBeDefined();
         const firstSecurityRequirement = uploadPath?.post?.security?.[0] as
           | { mockAuth?: unknown[] }
           | undefined;
         expect(firstSecurityRequirement?.mockAuth).toBeDefined();
+      });
+  });
+
+  it('returns 200 with mock observation summary for POST /v1/report/summarize', () => {
+    return request(app.getHttpServer())
+      .post('/v1/report/summarize')
+      .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
+      .send(summarizeRequestBody)
+      .expect(200)
+      .expect('Content-Type', /json/)
+      .expect((res) => {
+        expect(res.body).toEqual(e2eMockObservationSummary);
+        expect(summarizeMock).toHaveBeenCalledTimes(1);
+        expect(summarizeMock).toHaveBeenCalledWith(
+          parseAndValidateSummarizeBody(summarizeRequestBody),
+          undefined,
+        );
+      });
+  });
+
+  it('returns 200 with mock observation summary for POST /v1/report/summarize/file', () => {
+    summarizeMock.mockClear();
+    return request(app.getHttpServer())
+      .post('/v1/report/summarize/file')
+      .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
+      .attach('file', validPdfFixture, {
+        filename: 'valid.pdf',
+        contentType: 'application/pdf',
+      })
+      .expect(200)
+      .expect('Content-Type', /json/)
+      .expect((res) => {
+        expect(res.body).toEqual(e2eMockObservationSummary);
+        expect(summarizeMock).toHaveBeenCalledTimes(1);
+        expect(summarizeMock).toHaveBeenCalledWith(
+          {
+            pageCount: 1,
+            sections: [
+              {
+                sectionName: 'roof',
+                observations: [{ text: 'Damaged shingle near ridge' }],
+              },
+              {
+                sectionName: 'plumbing',
+                observations: [{ text: 'Slow leak at shutoff valve' }],
+              },
+            ],
+          },
+          undefined,
+        );
+      });
+  });
+
+  it('returns 401 for POST /v1/report/summarize without mock auth', () => {
+    return request(app.getHttpServer())
+      .post('/v1/report/summarize')
+      .send(summarizeRequestBody)
+      .expect(401)
+      .expect((res) => {
+        const requestId = res.headers['x-request-id'];
+        expect(requestId).toBeDefined();
+        expect(res.body).toEqual({
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'Unauthorized',
+            requestId,
+          },
+        });
+      });
+  });
+
+  it('maps SummarizationProviderError TIMEOUT to 408 summarize envelope', () => {
+    summarizeMock.mockRejectedValueOnce(
+      new SummarizationProviderError('TIMEOUT', 'adapter timed out'),
+    );
+    return request(app.getHttpServer())
+      .post('/v1/report/summarize')
+      .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
+      .send(summarizeRequestBody)
+      .expect(408)
+      .expect((res) => {
+        const requestId = res.headers['x-request-id'];
+        expect(requestId).toBeDefined();
+        expect(res.body).toEqual({
+          error: {
+            code: 'SUMMARIZATION_TIMEOUT',
+            message: 'Summarization timed out. Please retry later.',
+            requestId,
+            details: {
+              code: 'SUMMARIZATION_TIMEOUT',
+              retryable: true,
+            },
+          },
+        });
+      });
+  });
+
+  it('maps SummarizationProviderError UNREACHABLE to 502 summarize envelope', () => {
+    summarizeMock.mockRejectedValueOnce(
+      new SummarizationProviderError('UNREACHABLE', 'econnrefused'),
+    );
+    return request(app.getHttpServer())
+      .post('/v1/report/summarize')
+      .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
+      .send(summarizeRequestBody)
+      .expect(502)
+      .expect((res) => {
+        const requestId = res.headers['x-request-id'];
+        expect(requestId).toBeDefined();
+        expect(res.body).toEqual({
+          error: {
+            code: 'SUMMARIZATION_UNAVAILABLE',
+            message: 'Summarization service is temporarily unavailable.',
+            requestId,
+            details: {
+              code: 'SUMMARIZATION_UPSTREAM_ERROR',
+              providerCode: 'UNREACHABLE',
+            },
+          },
+        });
+      });
+  });
+
+  it('maps SummarizationProviderError HTTP_ERROR to 502 summarize envelope', () => {
+    summarizeMock.mockRejectedValueOnce(
+      new SummarizationProviderError('HTTP_ERROR', 'upstream 503'),
+    );
+    return request(app.getHttpServer())
+      .post('/v1/report/summarize')
+      .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
+      .send(summarizeRequestBody)
+      .expect(502)
+      .expect((res) => {
+        const requestId = res.headers['x-request-id'];
+        expect(requestId).toBeDefined();
+        expect(res.body).toEqual({
+          error: {
+            code: 'SUMMARIZATION_UNAVAILABLE',
+            message: 'Summarization service is temporarily unavailable.',
+            requestId,
+            details: {
+              code: 'SUMMARIZATION_UPSTREAM_ERROR',
+              providerCode: 'HTTP_ERROR',
+            },
+          },
+        });
+      });
+  });
+
+  it('maps SummarizationProviderError INVALID_RESPONSE to 422 summarize envelope', () => {
+    summarizeMock.mockRejectedValueOnce(
+      new SummarizationProviderError('INVALID_RESPONSE', 'bad json'),
+    );
+    return request(app.getHttpServer())
+      .post('/v1/report/summarize')
+      .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
+      .send(summarizeRequestBody)
+      .expect(422)
+      .expect((res) => {
+        const requestId = res.headers['x-request-id'];
+        expect(requestId).toBeDefined();
+        expect(res.body).toEqual({
+          error: {
+            code: 'SUMMARIZATION_FAILED',
+            message:
+              'Summarization could not produce a valid structured response.',
+            requestId,
+            details: { code: 'SUMMARIZATION_INVALID_RESPONSE' },
+          },
+        });
       });
   });
 

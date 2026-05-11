@@ -6,6 +6,8 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { inferHttpLogOutcomeHint } from '../interceptors/logging-outcome-map';
+import { ensureRequestId } from '../request-id.util';
 import {
   ERROR_CODE_BY_STATUS,
   INTERNAL_ERROR_CODE,
@@ -93,6 +95,15 @@ function mapDetailCodeToTopLevelCode(
   if (detailCode === 'UPLOAD_PROCESSING_TIMEOUT') {
     return 'EXTRACTION_TIMEOUT';
   }
+  if (detailCode === 'SUMMARIZATION_INVALID_RESPONSE') {
+    return 'SUMMARIZATION_FAILED';
+  }
+  if (detailCode === 'SUMMARIZATION_TIMEOUT') {
+    return 'SUMMARIZATION_TIMEOUT';
+  }
+  if (detailCode === 'SUMMARIZATION_UPSTREAM_ERROR') {
+    return 'SUMMARIZATION_UNAVAILABLE';
+  }
   return undefined;
 }
 
@@ -146,9 +157,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const httpHost = host.switchToHttp();
     const response = httpHost.getResponse<Response>();
     const request = httpHost.getRequest<Request>();
-    const requestId = request.requestId ?? 'missing-request-id';
+    const requestId = ensureRequestId(request);
 
     const { statusCode, body } = buildErrorEnvelope(exception, requestId);
+    const hint = inferHttpLogOutcomeHint(exception);
+    if (hint) {
+      request.httpLogOutcomeOverride = hint;
+    }
     response.status(statusCode).json(body);
   }
 }

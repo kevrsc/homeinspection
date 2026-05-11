@@ -92,7 +92,7 @@ Story **2.9** publishes integration aids for consumer apps:
 - Failure matrix: `docs/api/failure-matrix.md`
 - Copy-paste JSON fixtures: `test/fixtures/json/`
 
-These artifacts are runtime-aligned references for success and representative failure classes.
+These artifacts are runtime-aligned references for success and representative failure classes for **`POST /v1/report/upload`**, **`POST /v1/report/summarize`**, and **`POST /v1/report/summarize/file`** (multipart PDF → `ObservationSummary` in one round-trip).
 
 ## Extension ports & future phases
 
@@ -110,6 +110,78 @@ Story **2.10** documents where later capabilities attach **without** changing th
 - Architecture & phased roadmap: [`../_bmad-output/planning-artifacts/architecture.md`](../_bmad-output/planning-artifacts/architecture.md)
 
 **Contract anchor:** runtime response and error shapes remain documented in [`docs/api/failure-matrix.md`](docs/api/failure-matrix.md) and OpenAPI (`openapi/openapi.json`).
+
+## Report summarize flows (Epic 6)
+
+- **`POST /v1/report/summarize`** — send **`application/json`** with the same shape as **`POST /v1/report/upload`** success (`pageCount` + `sections[]`). Use when you already hold observation JSON (for example the web UI after upload).
+- **`POST /v1/report/summarize/file`** — send **`multipart/form-data`** with field **`file`** (same PDF rules as upload). The server runs extract then summarize and returns **`ObservationSummary`**. Prefer this for integrators who only need the summary in one HTTP round-trip. Expect higher end-to-end latency than JSON-only summarize (extraction plus LLM); align **`UPLOAD_PROCESSING_TIMEOUT_MS`** and summarizer adapter timeouts with your NFRs.
+
+**Summarizer timeout:** The Ollama adapter enforces **`LLM_TIMEOUT_MS`** (default **300000** = 5 minutes). If this is lower than the web client’s wall timeout, the API may return **408** while the UI is still waiting.
+
+**Summarize payload caps (Story 5.7):** JSON bodies (and extracted payloads before single-shot summarize) are rejected with **`details.code: SUMMARIZATION_BODY_LIMIT_EXCEEDED`** when they exceed the limits enforced in **`src/modules/report/dto/summarize-request.validation.ts`** — the same numbers appear as **`maxItems` / `maxLength` / `maximum`** on the summarize request schema in **`openapi/openapi.json`**.
+
+**Rate limits (Story 5.7):** **`RATE_LIMIT_WINDOW_MINUTES`** and **`RATE_LIMIT_MAX_REQUESTS`** apply to **`POST /v1/report/upload`**, **`POST /v1/report/summarize`**, and **`POST /v1/report/summarize/file`** together. One in-memory counter per authenticated client identity means heavy use of any of these routes consumes the shared budget for the others (see **`docs/api/failure-matrix.md`**).
+
+## Local LLM (Epic 5, Story 5.1)
+
+Run an **[Ollama](https://ollama.com/)** container next to the API for upcoming summarize features. **CI does not start this service** — use it only when you want real inference on your machine.
+
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) / Docker Desktop (**Windows** and **macOS** use Docker Desktop; **Linux** uses Engine + Compose plugin).
+
+### Start Ollama
+
+From **`homeinspection-api/`**:
+
+```bash
+docker compose up -d
+```
+
+Compose publishes **`11434` on the host loopback only** (`127.0.0.1:11434` → container `11434`). Align optional env placeholders in [`.env.example`](.env.example) (`LLM_BASE_URL`).
+
+**`LLM_BASE_URL` path prefixes:** set the base to wherever Ollama’s HTTP root lives—for example `http://127.0.0.1:11434` (default) or `https://edge.example.com/prod/ollama` when a gateway exposes Ollama under a sub-path. The adapter resolves **`POST …/api/chat`** relative to that URL (it does not strip your pathname). Use **`http:`** or **`https:`** only; credentials belong in **`LLM_API_KEY`**, not in the URL userinfo.
+
+The API’s Ollama adapter calls **`POST /api/chat`** with a **JSON Schema `format`** (structured outputs) so the reply matches **`executiveSummary`** + **`prioritizedItems`**, plus a tolerant parser (prose wrappers, thinking tags, alternate key casings, single-item objects, etc.). Use a **current Ollama** release; very old builds may not accept schema `format` and can return HTTP errors instead.
+
+Set **`LLM_DEBUG_LOG=true`** (or **`1`**, **`yes`**, **`on`**) in `.env` to log **truncated** Ollama `/api/chat` wire metadata (Story 5.8): URL, method, headers with Bearer redacted, request JSON with **truncated** system/user message strings, HTTP status plus **truncated** raw response text, and a **truncated** assistant content preview. Invalid values fail at startup. Defaults to **`false`**. Even truncated logs can be sensitive — enable only briefly when debugging **`SUMMARIZATION_INVALID_RESPONSE`** or upstream issues, then turn off.
+
+### Pull a small model (CPU-friendly baseline)
+
+First pull downloads several hundred MB to GB depending on tag:
+
+```bash
+docker compose exec ollama ollama pull llama3.2:1b
+```
+
+### Verify from the host
+
+**bash / macOS / Linux:**
+
+```bash
+curl -s http://127.0.0.1:11434/api/tags
+```
+
+**Windows (PowerShell):**
+
+```powershell
+Invoke-RestMethod -Uri http://127.0.0.1:11434/api/tags
+```
+
+You should see JSON listing installed models. If the daemon is not ready yet, wait a few seconds and retry.
+
+### CPU vs GPU
+
+- **Default (`docker compose up`)** uses **CPU**. Suitable for development and smoke tests; inference is slower.
+- **Linux + NVIDIA GPU:** install the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html), then add GPU device reservations per Ollama’s current Docker guidance (for example `deploy.resources.reservations.devices` with `nvidia.com/gpu` — adjust when you pin a production compose overlay).
+
+### Stop / reset
+
+```bash
+docker compose down
+```
+
+Volume **`ollama_data`** keeps downloaded models across restarts; remove it with `docker compose down -v` only if you intend to reclaim disk space.
 
 ## Deployment
 

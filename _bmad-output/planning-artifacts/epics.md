@@ -19,7 +19,7 @@ inputDocuments:
 
 ## Overview
 
-This document decomposes the PRD, Architecture, and UX Design Specification into implementable epics and user stories for the Phase 1 inspection PDF upload API (`POST /v1/report/upload`). Epics are ordered for incremental delivery: a governed, observable API shell first, then the extraction value stream, then explicit traceability for deferred UX-heavy work, then a first-party Phase 2 homeowner web client that consumes the stable `v1` contract.
+This document decomposes the PRD, Architecture, and UX Design Specification into implementable epics and user stories for the Phase 1 inspection PDF upload API (`POST /v1/report/upload`). Epics are ordered for incremental delivery: a governed, observable API shell first, then the extraction value stream, then explicit traceability for deferred UX-heavy work, then a first-party Phase 2 homeowner web client that consumes the stable `v1` contract, then optional UI (and optional API) work to surface **AI summarization** after a PDF-backed upload.
 
 ## Requirements Inventory
 
@@ -190,6 +190,16 @@ Homeowners can upload an inspection PDF through a first-party web client and rev
 **UX-DRs primarily addressed:** UX-DR4–UX-DR9 in shipped UI; UX-DR10 in published docs chrome when a docs site exists (Story 4.9)
 
 **Planning input:** [`docs/ux-backlog.md`](../../docs/ux-backlog.md); UX Design Specification *Component Strategy*, *Responsive Strategy*, *Accessibility Strategy*.
+
+### Epic 5: AI-assisted observation summary
+
+API consumers can submit **section-grouped observations** (aligned with the existing upload success payload) and receive an **LLM-generated summary and prioritization** for homeowner-oriented clarity—without requiring optional persistence or async phases—using a **Docker-friendly LLM** runtime for local use and **mocked inference** in CI.
+
+**Planning input:** Root [`README.MD`](../../README.MD) Phase 4; [`sprint-change-proposal-2026-05-10.md`](sprint-change-proposal-2026-05-10.md).
+
+**FRs primarily reinforced:** FR39 (AI-assisted analysis path realized); extends homeowner/orientation intent from FR30–FR32 at the API layer.
+
+**NFRs primarily addressed:** NFR4–NFR7 (auth and safe errors), NFR9–NFR11 (deterministic failures/timeouts), NFR12–NFR14 (stable `v1` additive contract), with LLM-specific latency handled via explicit timeouts and structured errors.
 
 ---
 
@@ -587,8 +597,161 @@ So that developer docs match readability commitments when a site exists outside 
 
 ---
 
+## Epic 5: AI-assisted observation summary
+
+Clients send observations produced by Phase 1 extraction (or future persisted reads) to a new **`v1` endpoint** that calls an **LLM** behind an application **port** and returns **structured JSON** (summary + prioritized items). Optional Phase 2 (MySQL) and Phase 3 (async) remain **out of scope** here; when persistence exists later, the same port can gain a repository-backed input adapter without breaking the HTTP contract chosen in this epic.
+
+### Story 5.1: Docker Compose LLM service and documentation
+
+As a prototype maintainer,  
+I want a documented way to run an LLM locally alongside the API (for example via Docker Compose),  
+So that developers can exercise real inference without relying on CI or external GPUs.
+
+**Acceptance Criteria:**
+
+**Given** the repository documents how to start the LLM service (image, model pull, ports, CPU vs GPU notes),  
+**When** a developer follows those steps,  
+**Then** they can reach the inference endpoint from the host network using values mirrored in `.env.example`.  
+**And** the default CI pipeline is **not** required to start this container (heavy integration remains optional/manual unless explicitly added later).
+
+### Story 5.2: AI summarization port and HTTP adapter
+
+As an API maintainer,  
+I want summarization implemented behind a domain/application **port** with an HTTP adapter (OpenAI-compatible or Ollama-style, per decision),  
+So that Nest controllers stay thin and LLM wiring stays replaceable and testable.
+
+**Acceptance Criteria:**
+
+**Given** configuration for base URL, model identifier, timeouts, and optional API key via environment variables,  
+**When** the application calls the port with normalized observation input,  
+**Then** the adapter returns provider errors as typed failures suitable for mapping to the stable error envelope (NFR6, NFR9).  
+**And** domain/application layers do not import Nest HTTP types or raw SDK singletons in lieu of the adapter boundary.
+
+### Story 5.3: Prompt and structured LLM output schema
+
+As a homeowner (via an API client),  
+I want the model output to **summarize** findings and **prioritize** what to address first in predictable JSON,  
+So that clients can render or store results without fragile free-text parsing.
+
+**Acceptance Criteria:**
+
+**Given** validated observation input (sections + observation texts),  
+**When** the LLM completes successfully,  
+**Then** the service returns a **documented JSON schema** (for example: executive summary string + ordered prioritized items with rationale fields—exact shape recorded in OpenAPI).  
+**And** the prompt instructs the model to stay grounded in supplied observations and to avoid inventing findings not present in the input.
+
+### Story 5.4: Versioned summarize endpoint with auth, rate limit, and OpenAPI
+
+As an API consumer,  
+I want a **`POST`-style `v1` route** (exact path chosen in implementation—e.g. under `v1/report`) that accepts a JSON body aligned with **`ReportUploadResponseDto` semantics** (`pageCount` + `sections[]` with `sectionName` and `observations[].text`),  
+So that I can chain upload → summarize with minimal transformation.
+
+**Acceptance Criteria:**
+
+**Given** Epic 1 guards and rate limiting patterns,  
+**When** the new route is called without auth or over quota,  
+**Then** responses match existing structured error semantics (`requestId`, classification).  
+**Given** valid auth and body,  
+**When** summarization succeeds or times out,  
+**Then** HTTP status and bodies are documented in OpenAPI alongside upload.  
+**And** request/response examples are added to the developer failure matrix or companion docs where upload examples already live.
+
+### Story 5.5: Automated tests with mock LLM and contract coverage
+
+As a prototype maintainer,  
+I want CI to verify the summarize route **without** a live LLM,  
+So that merges stay reliable and fast.
+
+**Acceptance Criteria:**
+
+**Given** tests substitute a mock/fake implementation of the summarization port,  
+**When** the test suite runs in CI,  
+**Then** at least one test covers successful structured response parsing/mapping.  
+**And** at least one test covers provider failure and timeout mapping to the stable error envelope.  
+**And** tests do not require network access to external LLM providers.
+
+### Story 5.6: Ollama adapter — respect `LLM_BASE_URL` path prefix
+
+As an operator,  
+I want the summarization HTTP adapter to preserve pathname segments on **`LLM_BASE_URL`**,  
+So that reverse-proxy and non-root LLM deployments call the correct upstream chat URL.
+
+### Story 5.7: JSON summarize — payload limits, OpenAPI parity, rate-limit policy
+
+As an API operator,  
+I want bounded JSON summarize bodies, OpenAPI that matches runtime validation, and an explicit rate-limit stance across upload vs summarize routes,  
+So that resource exhaustion and client drift are reduced.
+
+### Story 5.8: LLM debug logging — env validation and redaction
+
+As a security-conscious operator,  
+I want debug logging switches validated at startup and logs redacted by default,  
+So that inspection content cannot leak through misconfigured logging.
+
+### Story 5.9: Observation summary parser — strictness and normalization metadata
+
+As an API consumer,  
+I want invalid model output to fail predictably and any rank/text normalization to be visible or documented,  
+So that silent coercion does not mask regressions or corrupt user-visible strings.
+
+---
+
+## Epic 6: Web UI — optional AI summary after PDF upload (`POST /v1/report/summarize`)
+
+Homeowners already upload a **PDF** via **`POST /v1/report/upload`** (Epic 4). Epic **5** delivered **`POST /v1/report/summarize`** (singular **`report`**, not `reports`) with an **`application/json`** body in the same shape as a **successful upload response** (`pageCount` + `sections[]`). This epic adds a **visible, optional** path in the Phase 2 web client so a user who chose a PDF can obtain an **AI summary** without hand-curling JSON: the **browser** first completes upload, then **POSTs that structured payload** to **`/v1/report/summarize`** using the same **mock-auth** and **base URL** conventions as upload. A **single HTTP request that sends raw PDF bytes directly to the summarize URL** is **not** supported by today’s contract; if product requires that, it is a separate **API contract** extension (Story **6.2** backlog).
+
+### Story 6.1: UI option — chain upload JSON to summarize
+
+As a homeowner using the web client,  
+I want an **optional control** (after a successful PDF upload) to **request an AI summary**,  
+So that the app calls **`POST /v1/report/summarize`** with the **upload response JSON** and shows **`ObservationSummary`**-shaped results (or structured errors) without leaving the core flow.
+
+**Acceptance Criteria:**
+
+**Given** a completed **`POST /v1/report/upload`** with a structured success body,  
+**When** the user invokes the new summarize action,  
+**Then** the client issues **`POST /v1/report/summarize`** with **`Content-Type: application/json`**, the **same auth header pattern** as upload (`x-mock-auth` / env-driven), and a JSON body that **matches the upload success contract** the API already documents.
+
+**And** the UI surfaces **loading**, **bounded-wait** or honest **long-running** copy consistent with Epic 4 / NFR expectations, and **structured errors** (codes, `requestId`, optional `details`) compatible with existing **`UploadErrorPanel`** or a parallel summarize error surface.
+
+**And** the summarize call is **optional** — users who do not invoke it see no change to today’s upload-only behavior.
+
+**And** documentation (`README`, `docs/ux-backlog.md` pointer if needed) states that summarize is **`/v1/report/summarize`** (path spelling) and **JSON**, not multipart PDF.
+
+### Story 6.2 (optional / backlog): API — multipart PDF on summarize (single-shot)
+
+As an API maintainer,  
+I want an **optional** capability for clients to send a **PDF file** to a summarize-class route without a separate upload call,  
+So that thin clients could one-shot “PDF → summary” **if** we extend the contract.
+
+**Acceptance Criteria:**
+
+**Given** stakeholder approval and OpenAPI impact analysis,  
+**When** design chooses **multipart on `POST /v1/report/summarize`** **or** a **new** versioned route (e.g. under `v1/report`),  
+**Then** the API performs **extract → summarize** server-side (or documents why not), returns the same **`ObservationSummary`** envelope on success, and preserves **auth, rate limits, and error taxonomy** parity with upload + summarize.
+
+**And** **`openapi.json`**, **failure matrix**, and **web client** are updated together (no drift).
+
+**Note:** Deferred until **Story 6.1** shipped. Story **`6-2-api-optional-multipart-pdf-to-summarize-single-shot.md`** tracks **`POST /v1/report/summarize/file`** (done in sprint). Follow-up hardening from code review is tracked in Stories **5.6–5.9** and **6.3–6.4**.
+
+### Story 6.3: Web — summarize client timeouts, abort, and in-flight safety
+
+As a homeowner,  
+I want summarize requests to time out and cancel cleanly on navigation or stalled networks,  
+So that the UI never hangs indefinitely and does not apply stale results.
+
+### Story 6.4: Web — summarize auth headers and payload strictness
+
+As a developer,  
+I want empty API keys to fail before **`Authorization: Bearer`** is sent and invalid **`pageCount`** not silently coerced,  
+So that misconfiguration and bad payloads surface clearly.
+
+---
+
 ## Final validation summary
 
+- **Epic 5 additive scope:** AI summarize endpoint and LLM integration (Stories 5.1–5.5) extend API capabilities after Epic 4; FR39 is exercised by delivery rather than “extension path only” documentation.
+- **Epic 6 additive scope:** Phase 2 UI exposes an optional **`POST /v1/report/summarize`** call using the **upload JSON** body after PDF upload (**Story 6.1** delivered); optional **Story 6.2** remains **backlog** for a **future** multipart-PDF-to-summarize API if required.
 - **FR coverage:** FR1–FR39 are implemented or explicitly documented in Epic 1–2 stories; FR40 is addressed by Epic 3 Story 3.1 as the UI extension planning hook; FR30–FR35 homeowner and integrator outcomes are **expressed in UI** through Epic 4 where applicable without changing API semantics.
 - **NFR coverage:** Addressed via Epic 1 (security, governance, contract shell) and Epic 2 (latency, reliability behavior, observability, contract determinism, evolution notes). NFR8 operational SLO is supported by tests and logging; continuous tuning is expected post-release. Epic 4 reflects SLO and error behavior **in client UX** only.
 - **Starter template:** Story 1.1 satisfies Architecture requirement that Nest CLI scaffold is the first implementation story.

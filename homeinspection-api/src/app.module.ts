@@ -28,13 +28,13 @@ import { AppService } from './app.service';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(RequestIdMiddleware).forRoutes({
-      path: '*',
-      method: RequestMethod.ALL,
-    });
-    consumer.apply(RateLimitMiddleware).forRoutes({
-      path: 'v1/report/upload',
-      method: RequestMethod.POST,
-    });
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
+    consumer
+      .apply(RateLimitMiddleware)
+      .forRoutes(
+        { path: 'v1/report/upload', method: RequestMethod.POST },
+        { path: 'v1/report/summarize', method: RequestMethod.POST },
+        { path: 'v1/report/summarize/file', method: RequestMethod.POST },
+      );
   }
 }

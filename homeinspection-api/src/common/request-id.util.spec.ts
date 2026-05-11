@@ -1,6 +1,8 @@
+import type { Request } from 'express';
 import {
   REQUEST_ID_HEADER_INCOMING,
   REQUEST_ID_MAX_LENGTH,
+  ensureRequestId,
   resolveRequestIdFromHeaders,
 } from './request-id.util';
 
@@ -41,5 +43,23 @@ describe('resolveRequestIdFromHeaders', () => {
         [REQUEST_ID_HEADER_INCOMING]: tooLong,
       }),
     ).toMatch(UUID_V4_RE);
+  });
+});
+
+describe('ensureRequestId', () => {
+  it('assigns a UUID when requestId is unset', () => {
+    const req = { headers: {} } as unknown as Request;
+    const id = ensureRequestId(req);
+    expect(id).toMatch(UUID_V4_RE);
+    expect(req.requestId).toBe(id);
+  });
+
+  it('reuses a non-empty existing requestId', () => {
+    const req = {
+      headers: {},
+      requestId: '  existing  ',
+    } as unknown as Request;
+    expect(ensureRequestId(req)).toBe('existing');
+    expect(req.requestId).toBe('existing');
   });
 });

@@ -1,3 +1,7 @@
+## Deferred from: code review of 6-2-api-optional-multipart-pdf-to-summarize-single-shot.md (2026-05-11)
+
+- Summarize routes (`POST /v1/report/summarize`, `POST /v1/report/summarize/file`) do not forward a request-scoped `AbortSignal` into `ReportService`; parity between JSON and multipart; revisit when cancellation/NFR is specified.
+
 ## Deferred from: code review of 4-2-design-tokens-and-responsive-layout-shell.md (2026-05-06)
 
 - Breakpoint reference tables appear in both `homeinspection-web/README.md` and `homeinspection-web/docs/design-foundations.md` — intentional redundancy; avoid drift when UX widths change.
@@ -38,3 +42,7 @@
 ## Deferred from: code review of 3-1-ux-spec-traceability-backlog-for-deferred-ui.md (2026-05-06)
 
 - **Sprint status header comment drift** (`_bmad-output/implementation-artifacts/sprint-status.yaml`) — top comment metadata (`# last_updated`) diverges from YAML `last_updated`; cosmetic and pre-existing, defer cleanup until tracker-format maintenance pass.
+
+## Deferred from: code review of 5-3-prompt-and-structured-llm-output-schema.md (2026-05-11)
+
+- Markdown fence stripping uses `lastIndexOf('```')`; a JSON string field containing a literal triple-backtick sequence could be mis-split. Rare in practice; revisit if model output quality requires stricter fence handling.

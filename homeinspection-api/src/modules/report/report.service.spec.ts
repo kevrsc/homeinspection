@@ -1,12 +1,21 @@
-import { ReportService } from './report.service';
+import { BadRequestException } from '@nestjs/common';
 import {
   PdfExtractionError,
   PdfObservationExtractor,
 } from './extractors/pdf-observation-extractor.port';
-import { UploadProcessingTimeoutError } from './report.service';
+import { SUMMARIZE_MAX_SECTIONS } from './dto/summarize-request.validation';
+import { ReportService, UploadProcessingTimeoutError } from './report.service';
+import type { AiSummarizer } from './summarization/ai-summarizer.port';
 
 describe('ReportService', () => {
   let previousTimeout: string | undefined;
+
+  const summarizerStub: AiSummarizer = {
+    summarize: jest.fn().mockResolvedValue({
+      executiveSummary: 'stub',
+      prioritizedItems: [],
+    }),
+  };
 
   beforeEach(() => {
     previousTimeout = process.env.UPLOAD_PROCESSING_TIMEOUT_MS;
@@ -32,7 +41,7 @@ describe('ReportService', () => {
     const extractor: PdfObservationExtractor = {
       extract: extractMock,
     };
-    const service = new ReportService(extractor);
+    const service = new ReportService(extractor, summarizerStub);
     const pdfBuffer = Buffer.from('%PDF-1.4\nfake');
 
     const result = await service.extractPreview(pdfBuffer);
@@ -70,7 +79,7 @@ describe('ReportService', () => {
     const extractor: PdfObservationExtractor = {
       extract: extractMock,
     };
-    const service = new ReportService(extractor);
+    const service = new ReportService(extractor, summarizerStub);
 
     const result = await service.extractPreview(Buffer.from('%PDF-1.4\nfake'));
 
@@ -95,7 +104,7 @@ describe('ReportService', () => {
     const extractor: PdfObservationExtractor = {
       extract: extractMock,
     };
-    const service = new ReportService(extractor);
+    const service = new ReportService(extractor, summarizerStub);
 
     const result = await service.extractPreview(Buffer.from('%PDF-1.4\nfake'));
 
@@ -118,7 +127,7 @@ describe('ReportService', () => {
     const extractor: PdfObservationExtractor = {
       extract: extractMock,
     };
-    const service = new ReportService(extractor);
+    const service = new ReportService(extractor, summarizerStub);
 
     const result = await service.extractPreview(Buffer.from('%PDF-1.4\nfake'));
 
@@ -140,7 +149,7 @@ describe('ReportService', () => {
     const extractor: PdfObservationExtractor = {
       extract: extractMock,
     };
-    const service = new ReportService(extractor);
+    const service = new ReportService(extractor, summarizerStub);
 
     const result = await service.extractPreview(Buffer.from('%PDF-1.4\nfake'));
 
@@ -158,7 +167,7 @@ describe('ReportService', () => {
     const extractor = {
       extract: extractMock,
     } as unknown as PdfObservationExtractor;
-    const service = new ReportService(extractor);
+    const service = new ReportService(extractor, summarizerStub);
 
     await expect(
       service.extractPreview(Buffer.from('%PDF-1.4\nfake')),
@@ -176,10 +185,126 @@ describe('ReportService', () => {
     const extractor = {
       extract: extractMock,
     } as unknown as PdfObservationExtractor;
-    const service = new ReportService(extractor);
+    const service = new ReportService(extractor, summarizerStub);
 
     await expect(
       service.extractPreview(Buffer.from('%PDF-1.4\nslow')),
     ).rejects.toBeInstanceOf(UploadProcessingTimeoutError);
+  });
+
+  it('runs extract then summarize in summarizeFromPdfBuffer', async () => {
+    const extractMock = jest.fn().mockResolvedValue({
+      pageCount: 1,
+      observations: [{ section: 'roof', text: 'Leak at vent' }],
+    });
+    const summarizeMock = jest.fn().mockResolvedValue({
+      executiveSummary: 'Roof issue noted.',
+      prioritizedItems: [
+        { rank: 1, title: 'Vent leak', rationale: 'Input observation.' },
+      ],
+    });
+    const summarizer: AiSummarizer = { summarize: summarizeMock };
+    const extractor: PdfObservationExtractor = { extract: extractMock };
+    const service = new ReportService(extractor, summarizer);
+    const pdfBuffer = Buffer.from('%PDF-1.4\nfake');
+
+    await expect(service.summarizeFromPdfBuffer(pdfBuffer)).resolves.toEqual({
+      executiveSummary: 'Roof issue noted.',
+      prioritizedItems: [
+        { rank: 1, title: 'Vent leak', rationale: 'Input observation.' },
+      ],
+    });
+    expect(summarizeMock).toHaveBeenCalledWith(
+      {
+        pageCount: 1,
+        sections: [
+          {
+            sectionName: 'roof',
+            observations: [{ text: 'Leak at vent' }],
+          },
+        ],
+      },
+      undefined,
+    );
+  });
+
+  it('passes AbortSignal through summarizeFromPdfBuffer to summarizer', async () => {
+    const extractMock = jest.fn().mockResolvedValue({
+      pageCount: 1,
+      observations: [{ section: 'roof', text: 'Leak' }],
+    });
+    const summarizeMock = jest.fn().mockResolvedValue({
+      executiveSummary: 'S',
+      prioritizedItems: [],
+    });
+    const summarizer: AiSummarizer = { summarize: summarizeMock };
+    const extractor: PdfObservationExtractor = { extract: extractMock };
+    const service = new ReportService(extractor, summarizer);
+    const ac = new AbortController();
+
+    await service.summarizeFromPdfBuffer(Buffer.from('%PDF-1.4\nfake'), {
+      signal: ac.signal,
+    });
+
+    expect(summarizeMock).toHaveBeenCalledWith(
+      expect.objectContaining({ pageCount: 1 }),
+      { signal: ac.signal },
+    );
+  });
+
+  it('delegates summarizeObservations to the AI summarizer port', async () => {
+    const extractMock = jest.fn();
+    const summarizeMock = jest.fn().mockResolvedValue({
+      executiveSummary: 'Summary',
+      prioritizedItems: [
+        { rank: 1, title: 'Fix roof', rationale: 'Noted in input.' },
+      ],
+    });
+    const summarizer: AiSummarizer = { summarize: summarizeMock };
+    const extractor = {
+      extract: extractMock,
+    } as unknown as PdfObservationExtractor;
+    const service = new ReportService(extractor, summarizer);
+    const input = {
+      pageCount: 1,
+      sections: [
+        { sectionName: 'roof', observations: [{ text: 'Missing tab' }] },
+      ],
+    };
+    const ac = new AbortController();
+
+    await expect(
+      service.summarizeObservations(input, { signal: ac.signal }),
+    ).resolves.toEqual({
+      executiveSummary: 'Summary',
+      prioritizedItems: [
+        { rank: 1, title: 'Fix roof', rationale: 'Noted in input.' },
+      ],
+    });
+    expect(summarizeMock).toHaveBeenCalledWith(input, { signal: ac.signal });
+    expect(extractMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects summarizeFromPdfBuffer when extracted payload exceeds summarize caps', async () => {
+    const observations = Array.from(
+      { length: SUMMARIZE_MAX_SECTIONS + 1 },
+      (_, i) => ({
+        section: `sec-${i}`,
+        text: 'obs',
+      }),
+    );
+    const extractMock = jest.fn().mockResolvedValue({
+      pageCount: 1,
+      observations,
+    });
+    const summarizeMock = jest.fn();
+    const summarizer: AiSummarizer = { summarize: summarizeMock };
+    const extractor: PdfObservationExtractor = { extract: extractMock };
+    const service = new ReportService(extractor, summarizer);
+
+    await expect(
+      service.summarizeFromPdfBuffer(Buffer.from('%PDF-1.4\nfake')),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(summarizeMock).not.toHaveBeenCalled();
   });
 });

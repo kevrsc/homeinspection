@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { Observable } from 'rxjs';
+import type { OutcomeCategory } from './logging-outcome-map';
 import { mapStatusToOutcomeCategory } from './logging-outcome-map';
 
 /**
@@ -27,7 +28,12 @@ export class LoggingInterceptor implements NestInterceptor {
 
     res.once('finish', () => {
       const statusCode = res.statusCode;
-      const { outcome, category } = mapStatusToOutcomeCategory(statusCode);
+      const reqWithHint = req as Request & {
+        httpLogOutcomeOverride?: OutcomeCategory;
+      };
+      const { outcome, category } =
+        reqWithHint.httpLogOutcomeOverride ??
+        mapStatusToOutcomeCategory(statusCode);
       const durationMs = Math.max(0, Date.now() - startedAt);
       this.logger.log(
         JSON.stringify({
