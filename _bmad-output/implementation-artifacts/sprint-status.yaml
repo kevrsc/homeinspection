@@ -1,5 +1,5 @@
 # generated: 2026-05-04
-# last_updated: 2026-05-10 (Story 6.2 in-progress; Epic 6 in progress)
+# last_updated: 2026-05-10 (Story 6.2 review; Epic 6 in progress)
 # project: homeinspection
 # project_key: NOKEY
 # tracking_system: file-system
@@ -94,5 +94,5 @@ development_status:
 
   epic-6: in-progress
   6-1-web-ui-optional-ai-summary-chain-upload-json-to-summarize: done
-  6-2-api-optional-multipart-pdf-to-summarize-single-shot: in-progress
+  6-2-api-optional-multipart-pdf-to-summarize-single-shot: review
   epic-6-retrospective: done

@@ -1,6 +1,6 @@
 # Story 6.2: API — optional multipart PDF to summarize (single-shot)
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -28,28 +28,28 @@ So that **“PDF → structured summary”** is one HTTP round-trip when the two
 
 ## Tasks / Subtasks
 
-- [ ] **Routing & design decision (AC: #1, #4)**  
-  - [ ] **Record the chosen URL** in this story’s Dev Notes (pick one before coding): **(A)** extend **`POST /v1/report/summarize`** with a documented second `requestBody` content type (**`multipart/form-data`**) *or* **(B)** add a dedicated sub-route under **`v1/report/`** (e.g. **`POST /v1/report/summarize/file`** or similar—kebab-case, singular **`report`**). **Recommendation:** **(B)** avoids Nest/Swagger ambiguity and keeps JSON handler unchanged; if you choose **(A)**, justify and prove OpenAPI + Nest wiring stay stable.  
-  - [ ] If **(B)**: register the new path in **[`app.module.ts`](../../homeinspection-api/src/app.module.ts)** **`RateLimitMiddleware`** configuration **alongside** existing **`v1/report/summarize`** (same limit semantics as JSON summarize unless product says otherwise).
+- [x] **Routing & design decision (AC: #1, #4)**  
+  - [x] **Record the chosen URL** in this story’s Dev Notes (pick one before coding): **(A)** extend **`POST /v1/report/summarize`** with a documented second `requestBody` content type (**`multipart/form-data`**) *or* **(B)** add a dedicated sub-route under **`v1/report/`** (e.g. **`POST /v1/report/summarize/file`** or similar—kebab-case, singular **`report`**). **Recommendation:** **(B)** avoids Nest/Swagger ambiguity and keeps JSON handler unchanged; if you choose **(A)**, justify and prove OpenAPI + Nest wiring stay stable.  
+  - [x] If **(B)**: register the new path in **[`app.module.ts`](../../homeinspection-api/src/app.module.ts)** **`RateLimitMiddleware`** configuration **alongside** existing **`v1/report/summarize`** (same limit semantics as JSON summarize unless product says otherwise).
 
-- [ ] **Service orchestration (AC: #1–#3)**  
-  - [ ] Add **`ReportService.summarizeFromPdfBuffer`** (name flexible) that: **`extractPreview(buffer)`** → **`summarizeObservations(dto, options)`**; propagate **`AbortSignal`** if the controller passes one (match summarize / upload patterns).  
-  - [ ] Avoid duplicating PDF validation logic—**reuse** the same **`mimetype`**, magic-bytes, and size checks as **`upload`** (extract to shared helper if the controller currently inlines checks).
+- [x] **Service orchestration (AC: #1–#3)**  
+  - [x] Add **`ReportService.summarizeFromPdfBuffer`** (name flexible) that: **`extractPreview(buffer)`** → **`summarizeObservations(dto, options)`**; propagate **`AbortSignal`** if the controller passes one (match summarize / upload patterns).  
+  - [x] Avoid duplicating PDF validation logic—**reuse** the same **`mimetype`**, magic-bytes, and size checks as **`upload`** (extract to shared helper if the controller currently inlines checks).
 
-- [ ] **Controller + multipart (AC: #1–#3)**  
-  - [ ] New handler (or extended handler per design decision) with **`FileInterceptor('file', { limits: { fileSize: … } })`** mirroring **`upload`** limits (**20 MB** unless epic/architecture says otherwise).  
-  - [ ] Map errors identically to **`upload`** / **`summarizeShell`** where the failure class matches (timeout → **`UPLOAD_PROCESSING_TIMEOUT`** / **`RequestTimeoutException`** path, extraction → **`UPLOAD_PDF_PARSE_FAILED`** / **`UnprocessableEntityException`**, summarizer → **`mapSummarizationProviderError`**).
+- [x] **Controller + multipart (AC: #1–#3)**  
+  - [x] New handler (or extended handler per design decision) with **`FileInterceptor('file', { limits: { fileSize: … } })`** mirroring **`upload`** limits (**20 MB** unless epic/architecture says otherwise).  
+  - [x] Map errors identically to **`upload`** / **`summarizeShell`** where the failure class matches (timeout → **`UPLOAD_PROCESSING_TIMEOUT`** / **`RequestTimeoutException`** path, extraction → **`UPLOAD_PDF_PARSE_FAILED`** / **`UnprocessableEntityException`**, summarizer → **`mapSummarizationProviderError`**).
 
-- [ ] **OpenAPI + failure matrix + README (AC: #4–#6)**  
-  - [ ] Extend **[`summarization.openapi.ts`](../../homeinspection-api/src/openapi/summarization.openapi.ts)** (or sibling) and regenerate/merge **`openapi/openapi.json`**.  
-  - [ ] Update **`failure-matrix.md`**.  
-  - [ ] Update **`homeinspection-api/README.md`**; optionally **`homeinspection-web/README.md`** if integrators hit the web client docs for curl examples.
+- [x] **OpenAPI + failure matrix + README (AC: #4–#6)**  
+  - [x] Extend **[`summarization.openapi.ts`](../../homeinspection-api/src/openapi/summarization.openapi.ts)** (or sibling) and regenerate/merge **`openapi/openapi.json`**.  
+  - [x] Update **`failure-matrix.md`**.  
+  - [x] Update **`homeinspection-api/README.md`**; optionally **`homeinspection-web/README.md`** if integrators hit the web client docs for curl examples.
 
-- [ ] **Web client pointer (AC: #6)**  
-  - [ ] **Minimum:** document the new route for API users. **Stretch (optional in same PR):** add **`summarizePdfMultipart`** (or similar) in **`homeinspection-web/src/api/`** + one test—**only** if story capacity allows; otherwise split to a follow-up story.
+- [x] **Web client pointer (AC: #6)**  
+  - [x] **Minimum:** document the new route for API users. **Stretch (optional in same PR):** add **`summarizePdfMultipart`** (or similar) in **`homeinspection-web/src/api/`** + one test—**only** if story capacity allows; otherwise split to a follow-up story.
 
-- [ ] **Tests & gates (AC: #7)**  
-  - [ ] **`npm run test`**, **`npm run lint`**, **`npm run openapi:check`** from **`homeinspection-api/`**.
+- [x] **Tests & gates (AC: #7)**  
+  - [x] **`npm run test`**, **`npm run lint`**, **`npm run openapi:check`** from **`homeinspection-api/`**.
 
 ## Dev Notes
 
@@ -99,20 +99,38 @@ So that **“PDF → structured summary”** is one HTTP round-trip when the two
 
 ### Agent Model Used
 
-_(Fill when implementing.)_
+Composer (Cursor agent)
 
 ### Debug Log References
 
 ### Completion Notes List
 
+- Implemented **`POST /v1/report/summarize/file`**: **`assertValidUploadedPdfFile`** shared with upload; **`ReportService.summarizeFromPdfBuffer`** chains **`extractPreview`** → **`summarizeObservations`** (optional **`AbortSignal`** on summarize); controller maps extraction + summarizer errors like upload / JSON summarize; rate limit middleware includes the new path; OpenAPI regenerated; **`failure-matrix.md`**, API + web README updated; unit, controller, and e2e tests added; **`npm run test`**, **`test:e2e`**, **`build`**, **`lint`**, **`openapi:check`** passed after commit.
+
 ### Implementation Plan
 
-_(Fill during dev-story.)_
+- **Routing (task):** Chosen URL recorded here (skill limits edits outside allowed story sections): **Option (B)** — **`POST /v1/report/summarize/file`**, **`operationId`:** `reportSummarizeFromPdfFile`; JSON **`POST /v1/report/summarize`** unchanged.  
+- Shared PDF validation module (**`uploaded-pdf-file.validation.ts`**); **`ReportService.summarizeFromPdfBuffer`**; thin controller with extraction + summarization error mappers aligned with upload / JSON summarize.
 
 ### File List
 
-_(Fill during dev-story.)_
+- `_bmad-output/implementation-artifacts/6-2-api-optional-multipart-pdf-to-summarize-single-shot.md`
+- `_bmad-output/implementation-artifacts/sprint-status.yaml`
+- `homeinspection-api/README.md`
+- `homeinspection-api/docs/api/failure-matrix.md`
+- `homeinspection-api/openapi/openapi.json`
+- `homeinspection-api/src/app.module.ts`
+- `homeinspection-api/src/app.setup.ts`
+- `homeinspection-api/src/modules/report/report.controller.ts`
+- `homeinspection-api/src/modules/report/report.controller.spec.ts`
+- `homeinspection-api/src/modules/report/report.service.ts`
+- `homeinspection-api/src/modules/report/report.service.spec.ts`
+- `homeinspection-api/src/modules/report/uploaded-pdf-file.validation.ts`
+- `homeinspection-api/src/openapi/summarization.openapi.ts`
+- `homeinspection-api/test/app.e2e-spec.ts`
+- `homeinspection-web/README.md`
 
 ## Change Log
 
 - **2026-05-11:** Story file created (`ready-for-dev`) from user request; Epic **6** reopened in sprint for **6.2**.
+- **2026-05-10:** Implemented single-shot **`POST /v1/report/summarize/file`**; story status **`review`**; sprint **`6-2`** → **`review`**.
