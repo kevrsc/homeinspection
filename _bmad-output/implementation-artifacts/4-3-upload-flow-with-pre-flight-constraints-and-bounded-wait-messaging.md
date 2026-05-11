@@ -1,6 +1,6 @@
 # Story 4.3: Upload flow with pre-flight constraints and bounded-wait messaging
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -168,6 +168,7 @@ Composer (Cursor agent)
 ## Change Log
 
 - **2026-05-10:** Implementation complete — Story **4.3** upload UX, validation module + tests, bounded-wait banner; status → **review**; sprint **`4-3-*`** → **review**.
+- **2026-05-11:** Marked **done** in sprint after acceptance; Story **4.4** queued next.
 
 ## Questions / Clarifications (non-blocking)
 
