@@ -1,8 +1,14 @@
 import type { FormEvent } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { uploadReportPdf } from '../api/uploadReport';
 import { readWebConfig } from '../config';
+import { UploadErrorPanel } from '../features/upload/UploadErrorPanel';
+import {
+  parseUploadFailure,
+  summarizeUploadFailureForAnnouncement,
+  type ParsedUploadFailure,
+} from '../features/upload/parseUploadFailure';
 import { UploadProcessingStatus } from '../features/upload/UploadProcessingStatus';
 import { MAX_UPLOAD_BYTES } from '../features/upload/uploadLimits';
 import { validatePdfFile } from '../features/upload/validatePdfFile';
@@ -23,7 +29,19 @@ export function UploadPage() {
   const [clientValidationError, setClientValidationError] = useState<
     string | null
   >(null);
-  const [debugError, setDebugError] = useState<string | null>(null);
+  const [serverFailure, setServerFailure] =
+    useState<ParsedUploadFailure | null>(null);
+  const [failureAnnouncement, setFailureAnnouncement] = useState('');
+
+  useEffect(() => {
+    if (!serverFailure) {
+      setFailureAnnouncement('');
+      return;
+    }
+    setFailureAnnouncement(
+      summarizeUploadFailureForAnnouncement(serverFailure),
+    );
+  }, [serverFailure]);
 
   function runValidation(file: File): boolean {
     const result = validatePdfFile(file);
@@ -37,7 +55,7 @@ export function UploadPage() {
 
   function onFileChange(files: FileList | null) {
     const picked = files?.[0];
-    setDebugError(null);
+    setServerFailure(null);
     if (!picked) {
       setClientValidationError(null);
       return;
@@ -47,7 +65,7 @@ export function UploadPage() {
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setDebugError(null);
+    setServerFailure(null);
     const input = (e.currentTarget.elements.namedItem('pdf') as HTMLInputElement)
       ?.files?.[0];
     if (!input) {
@@ -70,15 +88,11 @@ export function UploadPage() {
       navigate('/results', { state: { json } });
     } catch (err) {
       const ex = err as Error & { status?: number; body?: unknown };
-      const body =
-        ex.body !== undefined
-          ? typeof ex.body === 'string'
-            ? ex.body
-            : JSON.stringify(ex.body, null, 2)
-          : ex.message;
-      setDebugError(
-        ex.status !== undefined ? `HTTP ${ex.status}\n${body}` : `${body}`,
-      );
+      const httpStatus =
+        typeof ex.status === 'number' && Number.isFinite(ex.status)
+          ? ex.status
+          : 0;
+      setServerFailure(parseUploadFailure(ex.body, httpStatus));
     } finally {
       setBusy(false);
     }
@@ -86,6 +100,10 @@ export function UploadPage() {
 
   return (
     <main className="space-y-6">
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {failureAnnouncement}
+      </div>
+
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight text-fg">
           Upload inspection PDF
@@ -158,12 +176,7 @@ export function UploadPage() {
         </button>
       </form>
 
-      {debugError && (
-        <section className="space-y-2 border-t border-border pt-6">
-          <h2 className="text-lg font-semibold text-fg">Response (error)</h2>
-          <pre>{debugError}</pre>
-        </section>
-      )}
+      {serverFailure ? <UploadErrorPanel failure={serverFailure} /> : null}
     </main>
   );
 }

@@ -1,6 +1,6 @@
 # Story 4.4: Structured error panel with copy Request ID and live regions
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -49,28 +49,28 @@ So that I can recover or share diagnostics (UX-DR5, UX-DR8 partial).
 
 ## Tasks / Subtasks
 
-- [ ] **T1 — Error model + parser** (AC: 1, 6)  
-  - [ ] Add pure **`parseUploadFailure(body: unknown, httpStatus: number)`** (name adjustable) returning a discriminated union: **`structured`** (`code`, `message`, `requestId?`, `details?`) vs **`fallback`** (`httpStatus`, `detailText?`).  
-  - [ ] Implement **`isStructuredErrorEnvelope`** style guard matching runtime/OpenAPI (`error` object with string `code` + `message`).  
-  - [ ] Vitest table-driven tests importing or inlining minimal fragments aligned with **`upload-error-validation-type.json`**, **`upload-error-auth.json`**, **`upload-error-timeout.json`**, plus malformed `{}` and non-object JSON.
+- [x] **T1 — Error model + parser** (AC: 1, 6)  
+  - [x] Add pure **`parseUploadFailure(body: unknown, httpStatus: number)`** (name adjustable) returning a discriminated union: **`structured`** (`code`, `message`, `requestId?`, `details?`) vs **`fallback`** (`httpStatus`, `detailText?`).  
+  - [x] Implement **`isStructuredErrorEnvelope`** style guard matching runtime/OpenAPI (`error` object with string `code` + `message`).  
+  - [x] Vitest table-driven tests importing or inlining minimal fragments aligned with **`upload-error-validation-type.json`**, **`upload-error-auth.json`**, **`upload-error-timeout.json`**, plus malformed `{}` and non-object JSON.
 
-- [ ] **T2 — `UploadErrorPanel` component** (AC: 2, 3)  
-  - [ ] Present **heading + primary message + code row + requestId row**; optional **`details`** JSON sub-block collapsed under `<details>` if useful for prototype maintainers — **do not** let raw JSON dominate the panel.  
-  - [ ] **Copy** button wired with async handler; expose **`aria-live="polite"`** stub text element for “Copied” / “Copy failed” feedback **or** temporary `role="status"` region updates.
+- [x] **T2 — `UploadErrorPanel` component** (AC: 2, 3)  
+  - [x] Present **heading + primary message + code row + requestId row**; optional **`details`** JSON sub-block collapsed under `<details>` if useful for prototype maintainers — **do not** let raw JSON dominate the panel.  
+  - [x] **Copy** button wired with async handler; expose **`aria-live="polite"`** stub text element for “Copied” / “Copy failed” feedback **or** temporary `role="status"` region updates.
 
-- [ ] **T3 — Live region wiring** (AC: 4)  
-  - [ ] Dedicated **`aria-live="polite"`** container updated via **`useEffect`** when server failure model changes (announce once per new failure).  
-  - [ ] Keep announcement **short** (≤ ~300 chars); full detail stays in the visible panel.
+- [x] **T3 — Live region wiring** (AC: 4)  
+  - [x] Dedicated **`aria-live="polite"`** container updated via **`useEffect`** when server failure model changes (announce once per new failure).  
+  - [x] Keep announcement **short** (≤ ~300 chars); full detail stays in the visible panel.
 
-- [ ] **T4 — Integrate `UploadPage`** (AC: 1–5)  
-  - [ ] Replace legacy **`debugError`** `<pre>` block with **`UploadErrorPanel`** + parser output; clear server error when user picks a new file or on successful retry path.  
-  - [ ] Preserve **client-side** validation **`role="alert"`** from Story **4.3** — server vs client errors must not overwrite each other ambiguously (define precedence in Dev Notes).
+- [x] **T4 — Integrate `UploadPage`** (AC: 1–5)  
+  - [x] Replace legacy **`debugError`** `<pre>` block with **`UploadErrorPanel`** + parser output; clear server error when user picks a new file or on successful retry path.  
+  - [x] Preserve **client-side** validation **`role="alert"`** from Story **4.3** — server vs client errors must not overwrite each other ambiguously (define precedence in Dev Notes).
 
-- [ ] **T5 — Documentation** (AC: 2)  
-  - [ ] Add bullet to **`homeinspection-web/README.md`** or **`docs/design-foundations.md`** linking UX-DR5 + failure-matrix + error envelope keys.
+- [x] **T5 — Documentation** (AC: 2)  
+  - [x] Add bullet to **`homeinspection-web/README.md`** or **`docs/design-foundations.md`** linking UX-DR5 + failure-matrix + error envelope keys.
 
-- [ ] **T6 — Regression** (AC: 6)  
-  - [ ] Full **`npm run test` / lint / build** green.
+- [x] **T6 — Regression** (AC: 6)  
+  - [x] Full **`npm run test` / lint / build** green.
 
 ## Dev Notes
 
@@ -116,11 +116,33 @@ So that I can recover or share diagnostics (UX-DR5, UX-DR8 partial).
 
 ### Agent Model Used
 
+Composer (Cursor agent)
+
 ### Debug Log References
+
+- **`parseUploadFailure.spec.ts`**: fixture-aligned structured envelopes + `{}` fallback + truncation + announcement length guard.
+- **`npm run test` / `lint` / `build`** — green for **`homeinspection-web/`** after TS fix for optional **`details`** in fixtures.
 
 ### Completion Notes List
 
+- **`parseUploadFailure.ts`**: **`ParsedUploadFailure`** union, **`isStructuredErrorEnvelope`**, **`summarizeUploadFailureForAnnouncement`** (≤300 chars default).
+- **`UploadErrorPanel.tsx`**: action-first **`message`**, labeled **`code`**, readable **`requestId`** + copy (**Clipboard API** + **`execCommand`** fallback), polite **`sr-only`** copy outcome line, collapsed **`details`** JSON.
+- **`UploadPage.tsx`**: **`serverFailure`** state + dedicated top-of-main **`aria-live="polite"`** announcer (separate from **`UploadProcessingStatus`**); clears server failure on file change / submit start; **`catch`** uses **`parseUploadFailure(ex.body, httpStatus)`** — no stringification-only debug block.
+- **Precedence:** **`role="alert"`** client validation unchanged; server panel independent — clearing selection resets server errors without touching client validation flow incorrectly.
+- **Docs:** README Story **4.4** sentence + **design-foundations** § Structured upload errors.
+
 ### File List
+
+- `homeinspection-web/src/features/upload/parseUploadFailure.ts`
+- `homeinspection-web/src/features/upload/parseUploadFailure.spec.ts`
+- `homeinspection-web/src/features/upload/UploadErrorPanel.tsx`
+- `homeinspection-web/src/pages/UploadPage.tsx`
+- `homeinspection-web/README.md`
+- `homeinspection-web/docs/design-foundations.md`
+
+## Change Log
+
+- **2026-05-11:** Implemented Story **4.4** — structured upload error panel, parser + Vitest, polite announcements, UX-DR5 docs; story & sprint → **review**.
 
 ---
 

@@ -74,6 +74,13 @@ Tune contrast pairs to meet audit targets; keep **semantic names** stable so uti
 - **Bounded waiting:** During submission, copy references **about 30 seconds** as a typical prototype upper bound (**NFR1** in [`prd.md`](../../_bmad-output/planning-artifacts/prd.md)) — **not** framed as a guarantee.
 - **Reduced motion:** `UploadProcessingStatus` uses **`motion-safe:` / `motion-reduce:`** Tailwind variants so spinners drop to a static indicator when **`prefers-reduced-motion: reduce`**.
 
+## Structured upload errors (Story 4.4 / UX-DR5)
+
+- **Envelope:** Matches Phase 1 JSON (`failure-matrix.md`): **`error.code`**, **`error.message`**, **`error.requestId`**, optional **`error.details`** — normalized via **`parseUploadFailure`** in `src/features/upload/parseUploadFailure.ts`.
+- **Presentation:** **`UploadErrorPanel`** leads with API **`message`**, shows **`code`** as labeled metadata, and **`requestId`** as readable text plus **Copy request ID** (`navigator.clipboard.writeText` with **`execCommand('copy')`** fallback).
+- **Announcements:** `UploadPage` hosts a dedicated **`aria-live="polite"`** `sr-only` region fed by **`summarizeUploadFailureForAnnouncement`** — separate from `UploadProcessingStatus` **`role="status"`** processing copy so polite announcements stay distinct (partial **UX-DR8**).
+- **Precedence:** **Client** validation (`role="alert"`) vs **server** failures (`UploadErrorPanel`) — clearing file selection or starting a new submit clears server-side failure state without overwriting inline validation semantics.
+
 ## References
 
 - UX backlog: [`../../docs/ux-backlog.md`](../../docs/ux-backlog.md) (UX-DR9, DR4/DR5).
