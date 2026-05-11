@@ -49,7 +49,7 @@ export function UploadErrorPanel({ failure }: Props) {
   if (failure.kind === 'fallback') {
     return (
       <section
-        className="space-y-4 rounded-[var(--radius-card)] border border-border bg-surface p-4 sm:p-5"
+        className="min-w-0 max-w-full space-y-4 rounded-[var(--radius-card)] border border-border bg-surface p-4 sm:p-5"
         aria-labelledby="upload-error-heading-fallback"
       >
         <h2
@@ -58,7 +58,7 @@ export function UploadErrorPanel({ failure }: Props) {
         >
           Could not upload
         </h2>
-        <p className="text-base leading-relaxed text-fg">
+        <p className="break-words text-base leading-relaxed text-fg">
           The server returned an error (HTTP <strong>{failure.httpStatus}</strong>
           ). Try again with a valid PDF under 20 MB, confirm your connection, and
           verify authentication matches the API configuration.
@@ -81,16 +81,16 @@ export function UploadErrorPanel({ failure }: Props) {
 
   return (
     <section
-      className="space-y-4 rounded-[var(--radius-card)] border border-border bg-surface p-4 sm:p-5"
+      className="min-w-0 max-w-full space-y-4 rounded-[var(--radius-card)] border border-border bg-surface p-4 sm:p-5"
       aria-labelledby="upload-error-heading"
     >
       <h2 id="upload-error-heading" className="text-lg font-semibold text-fg">
         Could not upload
       </h2>
 
-      <p className="text-base leading-relaxed text-fg">{message}</p>
+      <p className="break-words text-base leading-relaxed text-fg">{message}</p>
 
-      <dl className="grid gap-2 text-sm sm:grid-cols-[minmax(0,10rem)_1fr] sm:items-baseline">
+      <dl className="grid min-w-0 gap-2 text-sm sm:grid-cols-[minmax(0,10rem)_1fr] sm:items-baseline">
         <dt className="font-medium text-fg-muted">Error code</dt>
         <dd className="font-mono text-sm text-fg">{code}</dd>
         {requestId ? (

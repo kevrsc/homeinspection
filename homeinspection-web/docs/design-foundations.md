@@ -61,11 +61,11 @@ Aligned with **Breakpoint Strategy** in [`../../_bmad-output/planning-artifacts/
 
 Tune contrast pairs to meet audit targets; keep **semantic names** stable so utilities (`bg-page`, `text-fg`, …) pick up new values.
 
-**Direction 5 / split layout:** UX allows a richer large-screen layout later. **Master–detail split at `lg` is [Story 4.7](../../_bmad-output/implementation-artifacts/4-7-responsive-polish-and-optional-lg-master-detail-layout.md)—not part of Story 4.2.** This story only ships a **single-column**, mobile-first **`AppShell`**; responsive splits belong in 4.7.
+**Direction 5 / split layout:** Optional **`lg`** master–detail for observations ships in [**Story 4.7**](../../_bmad-output/implementation-artifacts/4-7-responsive-polish-and-optional-lg-master-detail-layout.md); Story **4.2** established single-column mobile-first **`AppShell`**.
 
 ## Layout shell
 
-`src/layout/AppShell.tsx`: `min-h-screen`, centered column, `max-w-3xl` → `lg:max-w-4xl`, horizontal padding **`px-4 sm:px-6`**. Routed pages render inside `<Outlet />`.
+`src/layout/AppShell.tsx`: **`overflow-x-hidden`**, **`min-w-0`** content column, `max-w-3xl` → **`lg:max-w-6xl`**, padding **`px-4 sm:px-6`** → **`lg:px-8`**. Routed pages render inside `<Outlet />`.
 
 ## Upload constraints & bounded wait (Story 4.3 / UX-DR6)
 
@@ -84,9 +84,19 @@ Tune contrast pairs to meet audit targets; keep **semantic names** stable so uti
 ## Observation results list (Story 4.5 / UX-DR4)
 
 - **Shape:** **`parseUploadSuccess`** in `src/features/results/uploadSuccessModel.ts` validates **`sections[]`** with **`sectionName`** + **`observations[].text`** (aligned with OpenAPI / [`upload-success.json`](../../homeinspection-api/test/fixtures/json/upload-success.json)); **`pageCount`** optional at runtime.
-- **Layout:** **`ObservationResults`** — calm-neutral cards (`border-border`, `bg-surface`), **`h2`** per section (no sticky chrome in this story — defer sticky headers to **4.7/4.8** if spec demands without focus traps).
+- **Layout (narrow):** Stacked sections — calm-neutral cards (`border-border`, `bg-surface`), **`h2`** per section.
+- **`lg` (Story 4.7):** Optional **master–detail** — left **`nav`** section rail (`aria-label="Report sections"`), right detail pane for **`activeSectionIndex`**; **no `position: sticky`** — avoids focus-trap risk called out in [`ux-backlog.md`](../../docs/ux-backlog.md) **UX-DR9**.
 - **Badges:** Each row includes an inline **Observation** label plus list icon — **visible text**, not color-only status (API does not yet expose severity; badge is informational).
-- **Keyboard:** Each observation **`<li tabIndex={0}>`** with **`focus-visible:outline-*`** matching link-style focus tokens — Tab moves through rows in DOM order.
+- **Keyboard:** Section buttons precede observation rows at **`lg`**; each observation **`<li tabIndex={0}>`** retains **`focus-visible:outline-*`**.
+
+## Responsive polish (Story 4.7 / UX-DR9)
+
+- **Anti-overflow:** **`UploadPage`** / **`ResultsPage`** **`main`** use **`min-w-0 max-w-full`**; long **`pre`** stays **`overflow-auto`**; prose **`break-words`** where unbroken strings could widen mobile viewports (**≥320px** goal).
+
+## Automated accessibility baseline (Story 4.8 / UX-DR8)
+
+- **Regression:** **`npm run test`** runs **`src/a11y/coreFlows.a11y.spec.tsx`** (axe-core via jest-axe); CI fails on new **`critical`** or **`serious`** violations (`expectNoSeriousAxeViolations`).
+- **Contrast:** Automated runs disable axe **`color-contrast`** under JSDOM — verify with a browser extension / Lighthouse on Direction 1 tokens or document Direction 4 overrides (see [`accessibility-testing.md`](accessibility-testing.md)).
 
 ## Disclaimer strip (Story 4.6 / UX-DR7)
 
@@ -96,5 +106,6 @@ Tune contrast pairs to meet audit targets; keep **semantic names** stable so uti
 
 ## References
 
-- UX backlog: [`../../docs/ux-backlog.md`](../../docs/ux-backlog.md) (UX-DR9, DR4/DR5).
+- UX backlog: [`../../docs/ux-backlog.md`](../../docs/ux-backlog.md) (UX-DR8/DR9, DR4/DR5).
+- Accessibility testing notes: [`accessibility-testing.md`](accessibility-testing.md).
 - Web README (env / proxy): [`../README.md`](../README.md).

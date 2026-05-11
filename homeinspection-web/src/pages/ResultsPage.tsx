@@ -25,7 +25,7 @@ export function ResultsPage() {
   }
 
   return (
-    <main className="space-y-6">
+    <main className="min-w-0 max-w-full space-y-6">
       <p>
         <Link
           to="/"
@@ -39,7 +39,7 @@ export function ResultsPage() {
         <h1 className="text-3xl font-semibold tracking-tight text-fg">
           Inspection observations
         </h1>
-        <p className="text-sm leading-relaxed text-fg-muted">
+        <p className="break-words text-sm leading-relaxed text-fg-muted">
           Section-grouped findings from your uploaded report (Direction 1 calm
           list baseline — UX-DR4).
         </p>
@@ -52,7 +52,7 @@ export function ResultsPage() {
         </>
       ) : (
         <section
-          className="space-y-4 rounded-[var(--radius-card)] border border-border bg-surface p-4 sm:p-5"
+          className="min-w-0 max-w-full space-y-4 rounded-[var(--radius-card)] border border-border bg-surface p-4 sm:p-5"
           aria-labelledby="invalid-results-heading"
         >
           <h2
@@ -61,7 +61,7 @@ export function ResultsPage() {
           >
             Could not read results
           </h2>
-          <p className="text-base leading-relaxed text-fg">
+          <p className="break-words text-base leading-relaxed text-fg">
             The API returned data this screen does not recognize. Try uploading
             again or contact support with your request details.
           </p>

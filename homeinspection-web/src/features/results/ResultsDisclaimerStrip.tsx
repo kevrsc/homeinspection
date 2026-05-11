@@ -5,13 +5,13 @@
 export function ResultsDisclaimerStrip() {
   return (
     <aside
-      className="rounded-[var(--radius-card)] border border-border bg-page px-4 py-3 text-sm leading-relaxed shadow-none sm:px-5"
+      className="min-w-0 max-w-full rounded-[var(--radius-card)] border border-border bg-page px-4 py-3 text-sm leading-relaxed shadow-none sm:px-5"
       aria-labelledby="results-disclaimer-heading"
     >
       <h2 id="results-disclaimer-heading" className="sr-only">
         Important notice about these results
       </h2>
-      <p className="text-fg">
+      <p className="break-words text-fg">
         <strong className="font-medium text-fg">Starting point only:</strong>{' '}
         These observations are a practical to-do list helper—not legal advice,
         not a complete safety assessment, and not a substitute for reading your

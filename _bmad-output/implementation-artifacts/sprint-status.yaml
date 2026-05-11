@@ -1,5 +1,5 @@
 # generated: 2026-05-04
-# last_updated: 2026-05-11 (Story 4.6 review)
+# last_updated: 2026-05-11 (Epic 4 complete pending retrospective)
 # project: homeinspection
 # project_key: NOKEY
 # tracking_system: file-system
@@ -72,14 +72,14 @@ development_status:
   3-1-ux-spec-traceability-backlog-for-deferred-ui: done
   epic-3-retrospective: done
 
-  epic-4: in-progress
+  epic-4: done
   4-1-web-client-scaffold-and-api-integration: done
   4-2-design-tokens-and-responsive-layout-shell: done
   4-3-upload-flow-with-pre-flight-constraints-and-bounded-wait-messaging: done
   4-4-structured-error-panel-with-copy-request-id-and-live-regions: done
   4-5-observation-list-and-section-grouping-direction-1-baseline: done
-  4-6-disclaimer-strip-on-first-results-view: review
-  4-7-responsive-polish-and-optional-lg-master-detail-layout: backlog
-  4-8-wcag-2-2-aa-baseline-and-automated-accessibility-checks: backlog
-  4-9-docs-readability-theme-when-a-docs-site-ships-ux-dr10: backlog
+  4-6-disclaimer-strip-on-first-results-view: done
+  4-7-responsive-polish-and-optional-lg-master-detail-layout: done
+  4-8-wcag-2-2-aa-baseline-and-automated-accessibility-checks: done
+  4-9-docs-readability-theme-when-a-docs-site-ships-ux-dr10: done
   epic-4-retrospective: optional

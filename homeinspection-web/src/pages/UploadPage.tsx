@@ -99,7 +99,7 @@ export function UploadPage() {
   }
 
   return (
-    <main className="space-y-6">
+    <main className="min-w-0 max-w-full space-y-6">
       <div aria-live="polite" aria-atomic="true" className="sr-only">
         {failureAnnouncement}
       </div>
@@ -108,7 +108,7 @@ export function UploadPage() {
         <h1 className="text-3xl font-semibold tracking-tight text-fg">
           Upload inspection PDF
         </h1>
-        <p className="text-base leading-relaxed text-fg-muted">
+        <p className="break-words text-base leading-relaxed text-fg-muted">
           Phase 2 — uploads send{' '}
           <code className="rounded bg-page px-1 py-0.5 text-sm">
             multipart/form-data
@@ -155,7 +155,7 @@ export function UploadPage() {
             accept="application/pdf,.pdf"
             disabled={busy}
             onChange={(ev) => onFileChange(ev.target.files)}
-            className="block w-full max-w-md rounded-[var(--radius-input)] border border-border bg-surface px-3 py-2 text-base text-fg file:mr-3 file:rounded file:border-0 file:bg-page file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-fg"
+            className="block w-full max-w-full rounded-[var(--radius-input)] border border-border bg-surface px-3 py-2 text-base text-fg file:mr-3 file:rounded file:border-0 file:bg-page file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-fg md:max-w-md"
           />
         </div>
 
