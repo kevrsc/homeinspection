@@ -6,6 +6,8 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { inferHttpLogOutcomeHint } from '../interceptors/logging-outcome-map';
+import { ensureRequestId } from '../request-id.util';
 import {
   ERROR_CODE_BY_STATUS,
   INTERNAL_ERROR_CODE,
@@ -155,9 +157,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const httpHost = host.switchToHttp();
     const response = httpHost.getResponse<Response>();
     const request = httpHost.getRequest<Request>();
-    const requestId = request.requestId ?? 'missing-request-id';
+    const requestId = ensureRequestId(request);
 
     const { statusCode, body } = buildErrorEnvelope(exception, requestId);
+    const hint = inferHttpLogOutcomeHint(exception);
+    if (hint) {
+      request.httpLogOutcomeOverride = hint;
+    }
     response.status(statusCode).json(body);
   }
 }

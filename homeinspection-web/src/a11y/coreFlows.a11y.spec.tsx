@@ -22,6 +22,10 @@ vi.mock('../config', () => ({
     raw === undefined || raw === '' ? '' : raw.replace(/\/+$/, ''),
   uploadEndpoint: (base: string) =>
     base ? `${base.replace(/\/+$/, '')}/v1/report/upload` : '/v1/report/upload',
+  summarizeEndpoint: (base: string) =>
+    base
+      ? `${base.replace(/\/+$/, '')}/v1/report/summarize`
+      : '/v1/report/summarize',
 }));
 
 const UPLOAD_SUCCESS_FIXTURE = {

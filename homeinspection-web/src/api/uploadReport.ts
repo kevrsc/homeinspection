@@ -1,19 +1,7 @@
-import type { AuthMode } from '../config';
 import { uploadEndpoint } from '../config';
+import { buildAuthHeaders, type UploadAuthHeaders } from './authHeaders';
 
-export type UploadAuthHeaders = {
-  authMode: AuthMode;
-  mockHeaderName: string;
-  mockHeaderValue: string;
-  apiKey: string;
-};
-
-function buildAuthHeaders(cfg: UploadAuthHeaders): HeadersInit {
-  if (cfg.authMode === 'mock') {
-    return { [cfg.mockHeaderName]: cfg.mockHeaderValue };
-  }
-  return { Authorization: `Bearer ${cfg.apiKey}` };
-}
+export type { UploadAuthHeaders } from './authHeaders';
 
 /**
  * POST multipart/form-data with field name `file` to Phase 1 upload API.

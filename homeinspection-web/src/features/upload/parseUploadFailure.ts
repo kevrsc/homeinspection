@@ -82,13 +82,16 @@ export function parseUploadFailure(
 export function summarizeUploadFailureForAnnouncement(
   failure: ParsedUploadFailure,
   maxLen = 300,
+  flavor: 'upload' | 'summary' = 'upload',
 ): string {
+  const verb = flavor === 'upload' ? 'Upload failed' : 'Summary request failed';
   if (failure.kind === 'structured') {
     const ridHint = failure.requestId ? ' Request ID included.' : '';
-    return truncate(`Upload failed. ${failure.code}.${ridHint}`, maxLen);
+    return truncate(`${verb}. ${failure.code}.${ridHint}`, maxLen);
   }
-  return truncate(
-    `Upload failed. HTTP ${failure.httpStatus}. Check your PDF and try again.`,
-    maxLen,
-  );
+  const tail =
+    flavor === 'upload'
+      ? 'Check your PDF and try again.'
+      : 'Try again in a moment.';
+  return truncate(`${verb}. HTTP ${failure.httpStatus}. ${tail}`, maxLen);
 }

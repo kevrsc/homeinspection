@@ -28,10 +28,7 @@ import { AppService } from './app.service';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(RequestIdMiddleware).forRoutes({
-      path: '*',
-      method: RequestMethod.ALL,
-    });
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
     consumer
       .apply(RateLimitMiddleware)
       .forRoutes(

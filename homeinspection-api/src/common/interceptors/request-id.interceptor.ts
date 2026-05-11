@@ -6,7 +6,10 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { Observable } from 'rxjs';
-import { REQUEST_ID_HEADER_OUTGOING } from '../request-id.util';
+import {
+  REQUEST_ID_HEADER_OUTGOING,
+  ensureRequestId,
+} from '../request-id.util';
 
 /**
  * Reinforces `X-Request-Id` on HTTP responses (middleware sets it first for paths where
@@ -21,7 +24,8 @@ export class RequestIdInterceptor implements NestInterceptor {
     const http = context.switchToHttp();
     const req = http.getRequest<Request>();
     const res = http.getResponse<Response>();
-    res.setHeader(REQUEST_ID_HEADER_OUTGOING, req.requestId);
+    const id = ensureRequestId(req);
+    res.setHeader(REQUEST_ID_HEADER_OUTGOING, id);
     return next.handle();
   }
 }

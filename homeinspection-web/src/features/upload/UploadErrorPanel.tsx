@@ -28,9 +28,11 @@ async function copyTextToClipboard(text: string): Promise<boolean> {
 
 type Props = {
   failure: ParsedUploadFailure;
+  /** Summarize flow uses alternate headings (Story 6.1). */
+  variant?: 'upload' | 'summarize';
 };
 
-export function UploadErrorPanel({ failure }: Props) {
+export function UploadErrorPanel({ failure, variant = 'upload' }: Props) {
   const [copyFeedback, setCopyFeedback] = useState('');
 
   useEffect(() => {
@@ -46,6 +48,8 @@ export function UploadErrorPanel({ failure }: Props) {
     );
   }
 
+  const isSummarize = variant === 'summarize';
+
   if (failure.kind === 'fallback') {
     return (
       <section
@@ -56,12 +60,24 @@ export function UploadErrorPanel({ failure }: Props) {
           id="upload-error-heading-fallback"
           className="text-lg font-semibold text-fg"
         >
-          Could not upload
+          {isSummarize ? 'Could not generate summary' : 'Could not upload'}
         </h2>
         <p className="break-words text-base leading-relaxed text-fg">
-          The server returned an error (HTTP <strong>{failure.httpStatus}</strong>
-          ). Try again with a valid PDF under 20 MB, confirm your connection, and
-          verify authentication matches the API configuration.
+          {isSummarize ? (
+            <>
+              The server returned an error (HTTP{' '}
+              <strong>{failure.httpStatus}</strong>). Confirm your connection and
+              verify authentication matches the API configuration, then try
+              again.
+            </>
+          ) : (
+            <>
+              The server returned an error (HTTP{' '}
+              <strong>{failure.httpStatus}</strong>
+              ). Try again with a valid PDF under 20 MB, confirm your connection,
+              and verify authentication matches the API configuration.
+            </>
+          )}
         </p>
         {failure.detailText ? (
           <details className="text-sm text-fg-muted">
@@ -85,7 +101,7 @@ export function UploadErrorPanel({ failure }: Props) {
       aria-labelledby="upload-error-heading"
     >
       <h2 id="upload-error-heading" className="text-lg font-semibold text-fg">
-        Could not upload
+        {isSummarize ? 'Could not generate summary' : 'Could not upload'}
       </h2>
 
       <p className="break-words text-base leading-relaxed text-fg">{message}</p>

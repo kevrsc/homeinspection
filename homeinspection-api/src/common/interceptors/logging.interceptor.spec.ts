@@ -66,4 +66,41 @@ describe('LoggingInterceptor', () => {
     expect(parsed.category).toBe('validation');
     expect(parsed.durationMs).toBeGreaterThanOrEqual(0);
   });
+
+  it('prefers request httpLogOutcomeOverride over status-only mapping', () => {
+    const interceptor = new LoggingInterceptor();
+    const resEmitter = new EventEmitter();
+    const res = Object.assign(resEmitter, {
+      statusCode: 422,
+    }) as unknown as Response;
+    const context = createExecutionContext({
+      req: {
+        requestId: 'req-override',
+        method: 'POST',
+        originalUrl: '/v1/report/summarize',
+        httpLogOutcomeOverride: {
+          outcome: 'summarization_error',
+          category: 'summarization',
+        },
+      },
+      res,
+    });
+    const handler: CallHandler = { handle: () => of({}) };
+    const loggerSpy = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+
+    interceptor.intercept(context, handler).subscribe();
+    resEmitter.emit('finish');
+
+    const firstCall = loggerSpy.mock.calls[0] as [unknown] | undefined;
+    const message = firstCall?.[0];
+    expect(typeof message).toBe('string');
+    const parsed = JSON.parse(message as string) as {
+      outcome: string;
+      category: string;
+    };
+    expect(parsed.outcome).toBe('summarization_error');
+    expect(parsed.category).toBe('summarization');
+  });
 });

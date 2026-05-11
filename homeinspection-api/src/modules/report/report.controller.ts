@@ -93,8 +93,17 @@ function mapSummarizationProviderError(
           providerCode: error.code,
         },
       });
-    default:
-      throw new InternalServerErrorException();
+    default: {
+      const providerCode =
+        typeof error.code === 'string' ? error.code : 'UNKNOWN';
+      throw new BadGatewayException({
+        message: 'Summarization service is temporarily unavailable.',
+        details: {
+          code: 'SUMMARIZATION_UPSTREAM_ERROR',
+          providerCode,
+        },
+      });
+    }
   }
 }
 

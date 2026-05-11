@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { AiSummarySection } from '../features/results/AiSummarySection';
 import { ObservationResults } from '../features/results/ObservationResults';
 import { ResultsDisclaimerStrip } from '../features/results/ResultsDisclaimerStrip';
 import { parseUploadSuccess } from '../features/results/uploadSuccessModel';
@@ -49,6 +50,7 @@ export function ResultsPage() {
         <>
           <ResultsDisclaimerStrip />
           <ObservationResults data={parsed.data} />
+          <AiSummarySection uploadPayload={parsed.data} />
         </>
       ) : (
         <section

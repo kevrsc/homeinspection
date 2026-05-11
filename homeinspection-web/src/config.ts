@@ -57,3 +57,11 @@ export function uploadEndpoint(base: string): string {
   }
   return `${base}${path}`;
 }
+
+export function summarizeEndpoint(base: string): string {
+  const path = '/v1/report/summarize';
+  if (!base) {
+    return path;
+  }
+  return `${base}${path}`;
+}

@@ -4,6 +4,26 @@ import type {
   PrioritizedObservationItem,
 } from './observation-summary.types';
 
+/** BOM, thinking/reasoning tags, and similar wrappers that break JSON.parse. */
+function stripModelNoise(text: string): string {
+  let t = text.replace(/^\uFEFF/, '').trimStart();
+  t = t
+    .replace(
+      /\x3c\x74\x68\x69\x6e\x6b\x3e[\s\S]*?\x3c\/\x74\x68\x69\x6e\x6b\x3e/gi,
+      '',
+    )
+    .trim();
+  t = t.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
+  t = t.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '').trim();
+  t = t
+    .replace(
+      /\x3c\x72\x65\x64\x61\x63\x74\x65\x64\x5f\x72\x65\x61\x73\x6f\x6e\x69\x6e\x67\x3e[\s\S]*?\x3c\/\x72\x65\x64\x61\x63\x74\x65\x64\x5f\x72\x65\x61\x73\x6f\x6e\x69\x6e\x67\x3e/gi,
+      '',
+    )
+    .trim();
+  return t.trim();
+}
+
 function stripOptionalMarkdownFence(text: string): string {
   const trimmed = text.trim();
   const fenceStart = /^```(?:json)?\s*\r?\n?/i.exec(trimmed);
@@ -18,21 +38,274 @@ function stripOptionalMarkdownFence(text: string): string {
   return afterOpen.slice(0, closeIdx).trim();
 }
 
-function parseJsonObject(text: string): unknown {
-  const candidate = stripOptionalMarkdownFence(text);
-  try {
-    return JSON.parse(candidate) as unknown;
-  } catch (cause) {
-    throw new SummarizationProviderError(
-      'INVALID_RESPONSE',
-      'LLM assistant content was not valid JSON for observation summary.',
-      { cause },
-    );
+/**
+ * When models wrap JSON in short prose ("Here you go: { ... }"), take the first
+ * balanced `{ ... }` slice so `JSON.parse` can succeed.
+ */
+function extractFirstBalancedJsonObject(text: string): string | null {
+  const start = text.indexOf('{');
+  if (start === -1) {
+    return null;
   }
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < text.length; i += 1) {
+    const c = text[i];
+    if (c === undefined) {
+      break;
+    }
+    if (inString) {
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (c === '\\') {
+        escape = true;
+        continue;
+      }
+      if (c === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (c === '"') {
+      inString = true;
+      continue;
+    }
+    if (c === '{') {
+      depth += 1;
+    } else if (c === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        return text.slice(start, i + 1);
+      }
+    }
+  }
+  return null;
 }
 
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0;
+/**
+ * Some models return `[ { "executiveSummary": ... } ]` instead of a bare object.
+ */
+function extractFirstBalancedJsonArray(text: string): string | null {
+  const start = text.indexOf('[');
+  if (start === -1) {
+    return null;
+  }
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < text.length; i += 1) {
+    const c = text[i];
+    if (c === undefined) {
+      break;
+    }
+    if (inString) {
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (c === '\\') {
+        escape = true;
+        continue;
+      }
+      if (c === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (c === '"') {
+      inString = true;
+      continue;
+    }
+    if (c === '[') {
+      depth += 1;
+    } else if (c === ']') {
+      depth -= 1;
+      if (depth === 0) {
+        return text.slice(start, i + 1);
+      }
+    }
+  }
+  return null;
+}
+
+/** Removes trailing commas before `}` or `]` (common LLM JSON drift). Not a full JSON5 parser. */
+function repairTrailingCommasInJson(s: string): string {
+  let prev = s;
+  for (let i = 0; i < 32; i += 1) {
+    const next = prev.replace(/,(\s*[\]}])/g, '$1');
+    if (next === prev) {
+      return next;
+    }
+    prev = next;
+  }
+  return prev;
+}
+
+function parseJsonObject(text: string): unknown {
+  const candidate = stripOptionalMarkdownFence(text);
+  const slices: string[] = [];
+  const add = (s: string): void => {
+    if (!slices.includes(s)) {
+      slices.push(s);
+    }
+    const repaired = repairTrailingCommasInJson(s);
+    if (repaired !== s && !slices.includes(repaired)) {
+      slices.push(repaired);
+    }
+  };
+  add(candidate);
+  const extracted = extractFirstBalancedJsonObject(candidate);
+  if (extracted !== null) {
+    add(extracted);
+  }
+  const extractedArr = extractFirstBalancedJsonArray(candidate);
+  if (extractedArr !== null) {
+    add(extractedArr);
+  }
+
+  let lastCause: unknown;
+  for (const slice of slices) {
+    try {
+      return JSON.parse(slice) as unknown;
+    } catch (e) {
+      lastCause = e;
+    }
+  }
+
+  throw new SummarizationProviderError(
+    'INVALID_RESPONSE',
+    'LLM assistant content was not valid JSON for observation summary.',
+    { cause: lastCause },
+  );
+}
+
+function normalizeParsedRoot(parsed: unknown): unknown {
+  if (!Array.isArray(parsed)) {
+    return parsed;
+  }
+  if (parsed.length === 1) {
+    const only: unknown = parsed[0];
+    if (typeof only === 'object' && only !== null) {
+      return only;
+    }
+  }
+  for (const el of parsed) {
+    if (typeof el === 'object' && el !== null) {
+      const r = el as Record<string, unknown>;
+      if (
+        r.executiveSummary !== undefined ||
+        r.ExecutiveSummary !== undefined ||
+        r.executive_summary !== undefined
+      ) {
+        return el;
+      }
+    }
+  }
+  return parsed;
+}
+
+function pickSummaryFields(obj: Record<string, unknown>): {
+  executive: unknown;
+  prioritized: unknown;
+} {
+  const executive =
+    obj.executiveSummary ?? obj.ExecutiveSummary ?? obj.executive_summary;
+  const prioritized =
+    obj.prioritizedItems ??
+    obj.PrioritizedItems ??
+    obj.prioritized_items ??
+    obj.items ??
+    obj.priorities;
+  return { executive, prioritized };
+}
+
+/** Single object `{ rank, title, rationale }` is coerced to a one-element array. */
+function resolvePrioritizedRaw(raw: unknown): unknown[] {
+  if (raw === undefined || raw === null) {
+    return [];
+  }
+  if (Array.isArray(raw)) {
+    return raw;
+  }
+  if (typeof raw === 'object') {
+    const o = raw as Record<string, unknown>;
+    if ('title' in o || 'rationale' in o || 'rank' in o) {
+      return [raw];
+    }
+  }
+  throw new SummarizationProviderError(
+    'INVALID_RESPONSE',
+    'Observation summary prioritizedItems must be an array or a single prioritized item object.',
+  );
+}
+
+function readExecutiveSummaryWithFallback(value: unknown): {
+  executiveSummary: string;
+  usedEmptyFallback: boolean;
+} {
+  if (typeof value === 'string') {
+    const t = value.trim();
+    if (t.length > 0) {
+      return { executiveSummary: t, usedEmptyFallback: false };
+    }
+    return {
+      executiveSummary:
+        'No executive summary text was returned. Use the observation list in your report for details.',
+      usedEmptyFallback: true,
+    };
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return { executiveSummary: String(value), usedEmptyFallback: false };
+  }
+  throw new SummarizationProviderError(
+    'INVALID_RESPONSE',
+    'Observation summary missing or invalid executiveSummary.',
+  );
+}
+
+function readNonEmptyItemText(
+  value: unknown,
+  field: 'title' | 'rationale',
+): string {
+  if (typeof value === 'string') {
+    const t = value.trim();
+    if (t.length > 0) {
+      return t;
+    }
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+  throw new SummarizationProviderError(
+    'INVALID_RESPONSE',
+    `Observation summary item has empty ${field}.`,
+  );
+}
+
+/** Models often return `""` for rationale; keep a non-empty homeowner-facing string. */
+function readRationaleWithFallback(value: unknown, title: string): string {
+  if (typeof value === 'string') {
+    const t = value.trim();
+    if (t.length > 0) {
+      return t;
+    }
+  } else if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  } else if (value !== undefined && value !== null) {
+    throw new SummarizationProviderError(
+      'INVALID_RESPONSE',
+      'Observation summary item has invalid rationale type.',
+    );
+  }
+
+  const trimmedTitle = title.trim();
+  if (trimmedTitle.length > 0) {
+    return `No separate rationale was returned for “${trimmedTitle}”; confirm against the observation text.`;
+  }
+  return 'No separate rationale was returned for this item; confirm against the observation text.';
 }
 
 function readItems(raw: unknown): PrioritizedObservationItem[] {
@@ -53,49 +326,63 @@ function readItems(raw: unknown): PrioritizedObservationItem[] {
       );
     }
     const o = el as Record<string, unknown>;
-    const rank = o.rank;
-    const title = o.title;
-    const rationale = o.rationale;
+    const rankRaw = o.rank;
+    let rank: number;
     if (
-      typeof rank !== 'number' ||
-      !Number.isFinite(rank) ||
-      !Number.isInteger(rank) ||
-      rank < 1
+      typeof rankRaw === 'number' &&
+      Number.isFinite(rankRaw) &&
+      Number.isInteger(rankRaw) &&
+      rankRaw >= 0
     ) {
+      rank = rankRaw;
+    } else if (typeof rankRaw === 'string') {
+      const t = rankRaw.trim();
+      const n = Number.parseInt(t, 10);
+      if (t !== String(n) || n < 0) {
+        throw new SummarizationProviderError(
+          'INVALID_RESPONSE',
+          'Observation summary item has invalid rank.',
+        );
+      }
+      rank = n;
+    } else {
       throw new SummarizationProviderError(
         'INVALID_RESPONSE',
         'Observation summary item has invalid rank.',
       );
     }
-    if (!isNonEmptyString(title) || !isNonEmptyString(rationale)) {
-      throw new SummarizationProviderError(
-        'INVALID_RESPONSE',
-        'Observation summary item has empty title or rationale.',
-      );
-    }
+    const title = readNonEmptyItemText(o.title, 'title');
+    const rationale = readRationaleWithFallback(o.rationale, title);
     items.push({
       rank,
-      title: title.trim(),
-      rationale: rationale.trim(),
+      title,
+      rationale,
     });
   }
 
   return items;
 }
 
-function validateRankSequence(items: PrioritizedObservationItem[]): void {
+/**
+ * LLMs often emit 0-based ranks, duplicates, or gaps. Preserve priority order
+ * (ascending declared rank, stable for ties) then assign contiguous 1..n.
+ */
+function normalizePrioritizedRanks(
+  items: PrioritizedObservationItem[],
+): PrioritizedObservationItem[] {
   if (items.length === 0) {
-    return;
+    return [];
   }
-  const sorted = [...items].sort((a, b) => a.rank - b.rank);
-  for (let i = 0; i < sorted.length; i += 1) {
-    if (sorted[i].rank !== i + 1) {
-      throw new SummarizationProviderError(
-        'INVALID_RESPONSE',
-        'Observation summary ranks must be 1..n with no gaps or duplicates.',
-      );
+  const sorted = [...items].sort((a, b) => {
+    if (a.rank !== b.rank) {
+      return a.rank - b.rank;
     }
-  }
+    return 0;
+  });
+  return sorted.map((item, index) => ({
+    ...item,
+    rank: index + 1,
+  }));
 }
 
 /**
@@ -104,7 +391,12 @@ function validateRankSequence(items: PrioritizedObservationItem[]): void {
 export function parseObservationSummaryFromAssistantText(
   assistantText: string,
 ): ObservationSummaryResult {
-  const parsed = parseJsonObject(assistantText);
+  const cleaned = stripModelNoise(assistantText);
+  let parsed: unknown = parseJsonObject(cleaned);
+  if (typeof parsed === 'string') {
+    parsed = parseJsonObject(parsed.trim());
+  }
+  parsed = normalizeParsedRoot(parsed);
   if (typeof parsed !== 'object' || parsed === null) {
     throw new SummarizationProviderError(
       'INVALID_RESPONSE',
@@ -112,21 +404,25 @@ export function parseObservationSummaryFromAssistantText(
     );
   }
   const obj = parsed as Record<string, unknown>;
-  const executiveSummary = obj.executiveSummary;
-  if (!isNonEmptyString(executiveSummary)) {
-    throw new SummarizationProviderError(
-      'INVALID_RESPONSE',
-      'Observation summary missing or empty executiveSummary.',
-    );
+  const { executive, prioritized } = pickSummaryFields(obj);
+  const { executiveSummary, usedEmptyFallback } =
+    readExecutiveSummaryWithFallback(executive);
+  const rawList = resolvePrioritizedRaw(prioritized);
+  const rawItems = readItems(rawList);
+  let prioritizedItems = normalizePrioritizedRanks(rawItems);
+  if (usedEmptyFallback && prioritizedItems.length === 0) {
+    prioritizedItems = [
+      {
+        rank: 1,
+        title: 'Review raw observations',
+        rationale:
+          'The model did not return prioritized findings. Use the supplied section observations for details.',
+      },
+    ];
   }
-  const prioritizedItems = readItems(obj.prioritizedItems);
-  validateRankSequence(prioritizedItems);
-  const prioritizedItemsOrdered = [...prioritizedItems].sort(
-    (a, b) => a.rank - b.rank,
-  );
 
   return {
-    executiveSummary: executiveSummary.trim(),
-    prioritizedItems: prioritizedItemsOrdered,
+    executiveSummary,
+    prioritizedItems,
   };
 }

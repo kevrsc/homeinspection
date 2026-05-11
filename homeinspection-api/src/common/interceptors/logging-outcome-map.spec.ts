@@ -1,5 +1,8 @@
-import { HttpStatus } from '@nestjs/common';
-import { mapStatusToOutcomeCategory } from './logging-outcome-map';
+import { HttpStatus, UnprocessableEntityException } from '@nestjs/common';
+import {
+  inferHttpLogOutcomeHint,
+  mapStatusToOutcomeCategory,
+} from './logging-outcome-map';
 
 describe('mapStatusToOutcomeCategory', () => {
   it('maps success statuses to success/extraction', () => {
@@ -42,6 +45,33 @@ describe('mapStatusToOutcomeCategory', () => {
       outcome: 'rate_limit_error',
       category: 'governance',
     });
+  });
+
+  it('infers summarization vs extraction for ambiguous 422 from exception details', () => {
+    expect(
+      inferHttpLogOutcomeHint(
+        new UnprocessableEntityException({
+          message:
+            'Summarization could not produce a valid structured response.',
+          details: { code: 'SUMMARIZATION_INVALID_RESPONSE' },
+        }),
+      ),
+    ).toEqual({
+      outcome: 'summarization_error',
+      category: 'summarization',
+    });
+    expect(
+      inferHttpLogOutcomeHint(
+        new UnprocessableEntityException({
+          message: 'PDF parsing failed.',
+          details: { code: 'UPLOAD_PDF_PARSE_FAILED', retryable: false },
+        }),
+      ),
+    ).toEqual({
+      outcome: 'extraction_error',
+      category: 'extraction',
+    });
+    expect(inferHttpLogOutcomeHint(new Error('other'))).toBeUndefined();
   });
 
   it('maps 5xx and fallback statuses', () => {
