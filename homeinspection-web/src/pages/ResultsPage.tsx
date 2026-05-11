@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ObservationResults } from '../features/results/ObservationResults';
+import { ResultsDisclaimerStrip } from '../features/results/ResultsDisclaimerStrip';
 import { parseUploadSuccess } from '../features/results/uploadSuccessModel';
 
 export function ResultsPage() {
@@ -40,13 +41,15 @@ export function ResultsPage() {
         </h1>
         <p className="text-sm leading-relaxed text-fg-muted">
           Section-grouped findings from your uploaded report (Direction 1 calm
-          list baseline — UX-DR4). Story 4.6 adds the persistent disclaimer
-          strip.
+          list baseline — UX-DR4).
         </p>
       </header>
 
       {parsed.ok ? (
-        <ObservationResults data={parsed.data} />
+        <>
+          <ResultsDisclaimerStrip />
+          <ObservationResults data={parsed.data} />
+        </>
       ) : (
         <section
           className="space-y-4 rounded-[var(--radius-card)] border border-border bg-surface p-4 sm:p-5"

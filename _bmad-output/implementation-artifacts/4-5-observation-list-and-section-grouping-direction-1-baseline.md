@@ -1,6 +1,6 @@
 # Story 4.5: Observation list and section grouping (Direction 1 baseline)
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -87,7 +87,7 @@ Composer (Cursor agent)
 
 - **`parseUploadSuccess`** tolerates missing **`pageCount`** at runtime while validating **`sections`** / **`text`** strictly.
 - **`ObservationResults`** ships informational **Observation** badge (API lacks severity field).
-- **`ResultsPage`** heading updated to homeowner-facing **Inspection observations**; Story **4.6** disclaimer called out in subtitle as **next**.
+- **`ResultsPage`** heading updated to homeowner-facing **Inspection observations** (disclaimer strip follows in Story **4.6**).
 
 ### File List
 
@@ -101,6 +101,7 @@ Composer (Cursor agent)
 ## Change Log
 
 - **2026-05-11:** Story **4.5** implemented — observation list + parser + docs; sprint **`4-5-*`** → **review**.
+- **2026-05-11:** Accepted complete — sprint **`4-5-*`** → **done**; Story **4.6** started next.
 
 ---
 

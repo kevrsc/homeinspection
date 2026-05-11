@@ -88,6 +88,12 @@ Tune contrast pairs to meet audit targets; keep **semantic names** stable so uti
 - **Badges:** Each row includes an inline **Observation** label plus list icon — **visible text**, not color-only status (API does not yet expose severity; badge is informational).
 - **Keyboard:** Each observation **`<li tabIndex={0}>`** with **`focus-visible:outline-*`** matching link-style focus tokens — Tab moves through rows in DOM order.
 
+## Disclaimer strip (Story 4.6 / UX-DR7)
+
+- **When:** Renders on **`ResultsPage`** only when **`parseUploadSuccess`** succeeds — invalid/debug payloads skip the strip (AC scopes to successful extraction).
+- **Surface:** **`ResultsDisclaimerStrip`** — **`aside`** with **`bg-page`**, subtle **`border-border`**, compact typography; primary obligation copy stays **outside** **`<details>`** so nothing critical is modal-only or expand-exclusive.
+- **Elaboration:** Optional **“How to use this list”** **`<details>`** block adds guidance without hiding the only disclaimer behind interaction.
+
 ## References
 
 - UX backlog: [`../../docs/ux-backlog.md`](../../docs/ux-backlog.md) (UX-DR9, DR4/DR5).
