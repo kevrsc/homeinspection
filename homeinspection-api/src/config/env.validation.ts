@@ -1,3 +1,12 @@
+function isHttpOrHttpsUrl(value: string): boolean {
+  try {
+    const u = new URL(value);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 function trimValue(value: unknown): string | undefined {
   if (value === undefined || value === null) {
     return undefined;
@@ -95,6 +104,31 @@ export function validateEnv(
       out.RATE_LIMIT_MAX_REQUESTS = String(m);
     }
   }
+
+  const llmBaseRaw = trimValue(config.LLM_BASE_URL);
+  const llmBase = llmBaseRaw ?? 'http://127.0.0.1:11434';
+  if (!isHttpOrHttpsUrl(llmBase)) {
+    errors.push('LLM_BASE_URL');
+  } else {
+    out.LLM_BASE_URL = llmBase;
+  }
+
+  const llmModel = trimValue(config.LLM_MODEL);
+  out.LLM_MODEL = llmModel ?? 'llama3.2:1b';
+
+  const llmTimeoutRaw = trimValue(config.LLM_TIMEOUT_MS);
+  if (llmTimeoutRaw === undefined) {
+    out.LLM_TIMEOUT_MS = '120000';
+  } else {
+    const t = Number.parseInt(llmTimeoutRaw, 10);
+    if (Number.isNaN(t) || t < 1) {
+      errors.push('LLM_TIMEOUT_MS');
+    } else {
+      out.LLM_TIMEOUT_MS = String(t);
+    }
+  }
+
+  out.LLM_API_KEY = trimValue(config.LLM_API_KEY) ?? '';
 
   if (errors.length > 0) {
     const unique = [...new Set(errors)];

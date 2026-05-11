@@ -4,6 +4,8 @@ import { PdfObservationExtractorAdapter } from './extractors/pdf-observation-ext
 import { PDF_OBSERVATION_EXTRACTOR } from './extractors/pdf-observation-extractor.port';
 import { ReportController } from './report.controller';
 import { ReportService } from './report.service';
+import { AI_SUMMARIZER } from './summarization/ai-summarizer.port';
+import { OllamaSummarizerAdapter } from './summarization/ollama-summarizer.adapter';
 
 @Module({
   controllers: [ReportController],
@@ -13,6 +15,10 @@ import { ReportService } from './report.service';
     {
       provide: PDF_OBSERVATION_EXTRACTOR,
       useClass: PdfObservationExtractorAdapter,
+    },
+    {
+      provide: AI_SUMMARIZER,
+      useClass: OllamaSummarizerAdapter,
     },
   ],
 })

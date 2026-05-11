@@ -111,6 +111,61 @@ Story **2.10** documents where later capabilities attach **without** changing th
 
 **Contract anchor:** runtime response and error shapes remain documented in [`docs/api/failure-matrix.md`](docs/api/failure-matrix.md) and OpenAPI (`openapi/openapi.json`).
 
+## Local LLM (Epic 5, Story 5.1)
+
+Run an **[Ollama](https://ollama.com/)** container next to the API for upcoming summarize features. **CI does not start this service** — use it only when you want real inference on your machine.
+
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) / Docker Desktop (**Windows** and **macOS** use Docker Desktop; **Linux** uses Engine + Compose plugin).
+
+### Start Ollama
+
+From **`homeinspection-api/`**:
+
+```bash
+docker compose up -d
+```
+
+Compose publishes **`11434` on the host loopback only** (`127.0.0.1:11434` → container `11434`). Align optional env placeholders in [`.env.example`](.env.example) (`LLM_BASE_URL`).
+
+### Pull a small model (CPU-friendly baseline)
+
+First pull downloads several hundred MB to GB depending on tag:
+
+```bash
+docker compose exec ollama ollama pull llama3.2:1b
+```
+
+### Verify from the host
+
+**bash / macOS / Linux:**
+
+```bash
+curl -s http://127.0.0.1:11434/api/tags
+```
+
+**Windows (PowerShell):**
+
+```powershell
+Invoke-RestMethod -Uri http://127.0.0.1:11434/api/tags
+```
+
+You should see JSON listing installed models. If the daemon is not ready yet, wait a few seconds and retry.
+
+### CPU vs GPU
+
+- **Default (`docker compose up`)** uses **CPU**. Suitable for development and smoke tests; inference is slower.
+- **Linux + NVIDIA GPU:** install the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html), then add GPU device reservations per Ollama’s current Docker guidance (for example `deploy.resources.reservations.devices` with `nvidia.com/gpu` — adjust when you pin a production compose overlay).
+
+### Stop / reset
+
+```bash
+docker compose down
+```
+
+Volume **`ollama_data`** keeps downloaded models across restarts; remove it with `docker compose down -v` only if you intend to reclaim disk space.
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.

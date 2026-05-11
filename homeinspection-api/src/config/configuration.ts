@@ -14,6 +14,10 @@ export interface AppConfig {
   apiKeys: string[];
   rateLimitWindowMinutes: number;
   rateLimitMaxRequests: number;
+  llmBaseUrl: string;
+  llmModel: string;
+  llmTimeoutMs: number;
+  llmApiKey: string;
 }
 
 export function getAppConfig(configService: ConfigService): AppConfig {
@@ -37,5 +41,9 @@ export function getAppConfig(configService: ConfigService): AppConfig {
     rateLimitMaxRequests: Number(
       configService.getOrThrow<string>('RATE_LIMIT_MAX_REQUESTS'),
     ),
+    llmBaseUrl: configService.getOrThrow<string>('LLM_BASE_URL'),
+    llmModel: configService.getOrThrow<string>('LLM_MODEL'),
+    llmTimeoutMs: Number(configService.getOrThrow<string>('LLM_TIMEOUT_MS')),
+    llmApiKey: configService.get<string>('LLM_API_KEY', '') ?? '',
   };
 }

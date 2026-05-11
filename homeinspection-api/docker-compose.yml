@@ -1,0 +1,21 @@
+# Local LLM sidecar for Epic 5 (Story 5.1).
+# Start from this directory: docker compose up -d
+# CI does not run this file — manual / local developer use only.
+
+services:
+  ollama:
+    # Pinned for reproducible pulls; bump intentionally when upgrading Ollama.
+    image: ollama/ollama:0.23.2
+    ports:
+      - '127.0.0.1:11434:11434'
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ['CMD-SHELL', 'ollama list >/dev/null 2>&1 || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+volumes:
+  ollama_data:
