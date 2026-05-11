@@ -1,5 +1,6 @@
 import { InternalServerErrorException } from '@nestjs/common';
 import { PdfExtractionError } from './extractors/pdf-observation-extractor.port';
+import { SUMMARIZE_MAX_SECTIONS } from './dto/summarize-request.validation';
 import { ReportController } from './report.controller';
 import { ReportService, UploadProcessingTimeoutError } from './report.service';
 import { SummarizationProviderError } from './summarization/ai-summarizer.port';
@@ -149,6 +150,35 @@ describe('ReportController', () => {
       response: {
         message: 'sectionName must not be empty or whitespace-only.',
         details: { code: 'SUMMARIZATION_BODY_INVALID' },
+      },
+    });
+    expect(summarizeObservations).not.toHaveBeenCalled();
+  });
+
+  it('rejects summarize body over JSON size/count caps', async () => {
+    const summarizeObservations = jest.fn();
+    const reportService = {
+      extractPreview: jest.fn(),
+      summarizeObservations,
+    } as unknown as ReportService;
+    const controller = new ReportController(reportService);
+    const sections: {
+      sectionName: string;
+      observations: { text: string }[];
+    }[] = Array.from({ length: SUMMARIZE_MAX_SECTIONS + 1 }, (_, i) => ({
+      sectionName: `s${i}`,
+      observations: [{ text: 'x' }],
+    }));
+
+    await expect(
+      controller.summarizeShell({ pageCount: 1, sections }),
+    ).rejects.toMatchObject({
+      status: 400,
+      response: {
+        details: {
+          code: 'SUMMARIZATION_BODY_LIMIT_EXCEEDED',
+          field: 'sections',
+        },
       },
     });
     expect(summarizeObservations).not.toHaveBeenCalled();

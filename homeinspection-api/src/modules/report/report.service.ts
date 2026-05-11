@@ -6,6 +6,7 @@ import {
 } from './extractors/pdf-observation-extractor.port';
 import type { PdfObservationExtractor } from './extractors/pdf-observation-extractor.port';
 import { ReportUploadResponseDto } from './dto/extraction-response.dto';
+import { enforceSummarizePayloadLimits } from './dto/summarize-request.validation';
 import {
   AI_SUMMARIZER,
   type AiSummarizer,
@@ -44,6 +45,7 @@ export class ReportService {
     options?: { signal?: AbortSignal },
   ): Promise<ObservationSummaryResult> {
     const dto = await this.extractPreview(pdfBuffer);
+    enforceSummarizePayloadLimits(dto);
     return this.summarizeObservations(dto, options);
   }
 

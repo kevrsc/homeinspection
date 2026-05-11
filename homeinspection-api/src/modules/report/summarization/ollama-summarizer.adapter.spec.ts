@@ -1,9 +1,67 @@
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   SummarizationProviderError,
   SummarizationResult,
 } from './ai-summarizer.port';
-import { OllamaSummarizerAdapter } from './ollama-summarizer.adapter';
+import {
+  buildOllamaChatRequestUrl,
+  OllamaSummarizerAdapter,
+  summarizeOllamaChatRequestJsonForDebug,
+} from './ollama-summarizer.adapter';
+
+describe('summarizeOllamaChatRequestJsonForDebug', () => {
+  it('truncates long user and system message content for logs (Story 5.8)', () => {
+    const long = 'z'.repeat(5000);
+    const body = JSON.stringify({
+      model: 'm',
+      messages: [
+        { role: 'system', content: long },
+        { role: 'user', content: long },
+      ],
+    });
+    const out = summarizeOllamaChatRequestJsonForDebug(body) as {
+      messages: { role: string; content: string }[];
+    };
+    const sys = out.messages.find((m) => m.role === 'system');
+    const user = out.messages.find((m) => m.role === 'user');
+    expect(sys?.content.length).toBeLessThan(5000);
+    expect(user?.content.length).toBeLessThan(5000);
+    expect(sys?.content).toContain('preview');
+  });
+});
+
+describe('buildOllamaChatRequestUrl', () => {
+  it('joins api/chat onto origin-only base', () => {
+    expect(buildOllamaChatRequestUrl('http://127.0.0.1:11434')).toBe(
+      'http://127.0.0.1:11434/api/chat',
+    );
+  });
+
+  it('preserves single-segment path prefix without trailing slash', () => {
+    expect(buildOllamaChatRequestUrl('http://127.0.0.1:11434/ollama')).toBe(
+      'http://127.0.0.1:11434/ollama/api/chat',
+    );
+  });
+
+  it('preserves path prefix when base already has trailing slash', () => {
+    expect(buildOllamaChatRequestUrl('http://127.0.0.1:11434/ollama/')).toBe(
+      'http://127.0.0.1:11434/ollama/api/chat',
+    );
+  });
+
+  it('preserves nested gateway path', () => {
+    expect(
+      buildOllamaChatRequestUrl('https://gw.example.com/v1/proxy/ollama'),
+    ).toBe('https://gw.example.com/v1/proxy/ollama/api/chat');
+  });
+
+  it('trims surrounding whitespace on base URL', () => {
+    expect(buildOllamaChatRequestUrl('  http://127.0.0.1:11434/ollama  ')).toBe(
+      'http://127.0.0.1:11434/ollama/api/chat',
+    );
+  });
+});
 
 describe('OllamaSummarizerAdapter', () => {
   const sampleInput = {
@@ -42,6 +100,7 @@ describe('OllamaSummarizerAdapter', () => {
       LLM_MODEL: 'llama3.2:1b',
       LLM_TIMEOUT_MS: '30000',
       LLM_API_KEY: '',
+      LLM_DEBUG_LOG: 'false',
       ...overrides,
     };
     return {
@@ -112,6 +171,26 @@ describe('OllamaSummarizerAdapter', () => {
     expect(body.messages[0].role).toBe('system');
     expect(body.messages[1].role).toBe('user');
     expect(JSON.parse(body.messages[1].content)).toEqual(sampleInput);
+  });
+
+  it('posts to path-prefixed LLM_BASE_URL when mounted under a sub-path', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: () =>
+        Promise.resolve(
+          ollamaAssistantPayload(JSON.stringify(validStructuredSummary)),
+        ),
+    });
+
+    const adapter = new OllamaSummarizerAdapter(
+      makeConfig({ LLM_BASE_URL: 'http://127.0.0.1:11434/ollama' }),
+    );
+    await adapter.summarize(sampleInput);
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://127.0.0.1:11434/ollama/api/chat',
+      expect.anything(),
+    );
   });
 
   it('sends Authorization when LLM_API_KEY is set', async () => {
@@ -323,6 +402,41 @@ describe('OllamaSummarizerAdapter', () => {
     });
   });
 
+  it('when LLM_DEBUG_LOG is enabled, request logs truncate user JSON (Story 5.8)', async () => {
+    const logSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation();
+    const secretMarker = 'SECRET_OBS_MARKER_';
+    const bigInput = {
+      pageCount: 1,
+      sections: [
+        {
+          sectionName: 'Roof',
+          observations: [{ text: secretMarker.repeat(200) }],
+        },
+      ],
+    };
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: () =>
+        Promise.resolve(
+          ollamaAssistantPayload(
+            JSON.stringify({
+              executiveSummary: 'S',
+              prioritizedItems: [{ rank: 1, title: 'T', rationale: 'R' }],
+            }),
+          ),
+        ),
+    });
+    const adapter = new OllamaSummarizerAdapter(
+      makeConfig({ LLM_DEBUG_LOG: 'true' }),
+    );
+    await adapter.summarize(bigInput);
+    const joined = logSpy.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(joined).not.toContain(secretMarker.repeat(200));
+    expect(joined).toContain('preview');
+    logSpy.mockRestore();
+  });
+
   it('maps fetch network failure to UNREACHABLE', async () => {
     global.fetch = jest.fn().mockRejectedValue(new TypeError('fetch failed'));
 
@@ -404,6 +518,7 @@ describe('OllamaSummarizerAdapter', () => {
       LLM_BASE_URL: 'http://127.0.0.1:11434',
       LLM_TIMEOUT_MS: '30000',
       LLM_API_KEY: '',
+      LLM_DEBUG_LOG: 'false',
     };
     const config = {
       getOrThrow: (key: string) => {

@@ -1,8 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { stubGlobalFetchHangRespectingSignal } from '../test/stubFetchHangWithSignal';
 import {
   buildSummarizeRequestBody,
+  DEFAULT_SUMMARIZE_FETCH_TIMEOUT_MS,
+  InvalidSummarizePayloadError,
+  summarizeClientTimeoutDisplayLabel,
   summarizeObservationsPayload,
+  SummarizeRequestAbortedError,
 } from './summarizeReport';
+
+describe('summarizeClientTimeoutDisplayLabel', () => {
+  it('matches default timeout in human-readable units', () => {
+    expect(summarizeClientTimeoutDisplayLabel()).toBe('5 minutes');
+  });
+});
 
 const mockAuth = {
   authMode: 'mock' as const,
@@ -12,12 +23,17 @@ const mockAuth = {
 };
 
 describe('buildSummarizeRequestBody', () => {
-  it('uses pageCount 0 when absent', () => {
-    const body = buildSummarizeRequestBody({
-      sections: [{ sectionName: 'roof', observations: [{ text: 'x' }] }],
-    });
-    expect(body.pageCount).toBe(0);
-    expect(body.sections).toHaveLength(1);
+  it('throws when pageCount is missing', () => {
+    expect(() =>
+      buildSummarizeRequestBody({
+        sections: [{ sectionName: 'roof', observations: [{ text: 'x' }] }],
+      }),
+    ).toThrow(InvalidSummarizePayloadError);
+    expect(() =>
+      buildSummarizeRequestBody({
+        sections: [{ sectionName: 'roof', observations: [{ text: 'x' }] }],
+      }),
+    ).toThrow(/pageCount is required/);
   });
 
   it('preserves non-negative integer pageCount', () => {
@@ -29,19 +45,31 @@ describe('buildSummarizeRequestBody', () => {
     ).toBe(4);
   });
 
-  it('uses 0 when pageCount is not a valid non-negative integer', () => {
-    expect(
+  it('throws when pageCount is negative', () => {
+    expect(() =>
       buildSummarizeRequestBody({
         pageCount: -1,
         sections: [],
-      }).pageCount,
-    ).toBe(0);
-    expect(
+      }),
+    ).toThrow(/non-negative integer/);
+  });
+
+  it('throws when pageCount is not an integer', () => {
+    expect(() =>
       buildSummarizeRequestBody({
         pageCount: 1.5,
         sections: [],
-      }).pageCount,
-    ).toBe(0);
+      }),
+    ).toThrow(/non-negative integer/);
+  });
+
+  it('throws when pageCount is not finite', () => {
+    expect(() =>
+      buildSummarizeRequestBody({
+        pageCount: Number.NaN,
+        sections: [],
+      }),
+    ).toThrow(/non-negative integer/);
   });
 });
 
@@ -83,6 +111,8 @@ describe('summarizeObservationsPayload', () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('/v1/report/summarize');
     expect(init.method).toBe('POST');
+    expect(init.signal).toBeDefined();
+    expect(init.signal?.aborted).toBe(false);
     expect(init.headers).toMatchObject({
       'X-Mock-Auth': 'test-token',
       'Content-Type': 'application/json',
@@ -95,17 +125,25 @@ describe('summarizeObservationsPayload', () => {
     expect(result.prioritizedItems[0].title).toBe('Fix roof');
   });
 
-  it('sends pageCount 0 in JSON when upload payload omitted pageCount', async () => {
+  it('does not call fetch when pageCount is missing', async () => {
     const fetchMock = vi.mocked(globalThis.fetch);
-    await summarizeObservationsPayload(
-      {
-        sections: [{ sectionName: 'a', observations: [{ text: 'b' }] }],
+    await expect(
+      summarizeObservationsPayload(
+        {
+          sections: [{ sectionName: 'a', observations: [{ text: 'b' }] }],
+        },
+        '',
+        mockAuth,
+      ),
+    ).rejects.toMatchObject({
+      status: 0,
+      body: {
+        error: expect.objectContaining({
+          code: 'CLIENT_SUMMARIZE_PAYLOAD_INVALID',
+        }),
       },
-      '',
-      mockAuth,
-    );
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(JSON.parse(init.body as string).pageCount).toBe(0);
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('throws with status and body on non-OK response for parseUploadFailure', async () => {
@@ -124,7 +162,7 @@ describe('summarizeObservationsPayload', () => {
 
     await expect(
       summarizeObservationsPayload(
-        { sections: [{ sectionName: 's', observations: [{ text: 't' }] }] },
+        { pageCount: 1, sections: [{ sectionName: 's', observations: [{ text: 't' }] }] },
         '',
         mockAuth,
       ),
@@ -139,7 +177,7 @@ describe('summarizeObservationsPayload', () => {
   it('uses Bearer token when authMode is live', async () => {
     const fetchMock = vi.mocked(globalThis.fetch);
     await summarizeObservationsPayload(
-      { sections: [{ sectionName: 's', observations: [{ text: 't' }] }] },
+      { pageCount: 0, sections: [{ sectionName: 's', observations: [{ text: 't' }] }] },
       '',
       {
         authMode: 'live',
@@ -153,5 +191,110 @@ describe('summarizeObservationsPayload', () => {
       Authorization: 'Bearer secret',
       'Content-Type': 'application/json',
     });
+  });
+
+  it('does not call fetch when live apiKey is empty', async () => {
+    const fetchMock = vi.mocked(globalThis.fetch);
+    await expect(
+      summarizeObservationsPayload(
+        { pageCount: 1, sections: [{ sectionName: 's', observations: [{ text: 't' }] }] },
+        '',
+        {
+          authMode: 'live',
+          mockHeaderName: '',
+          mockHeaderValue: '',
+          apiKey: '',
+        },
+      ),
+    ).rejects.toMatchObject({
+      status: 0,
+      body: {
+        error: expect.objectContaining({ code: 'CLIENT_AUTH_CONFIG' }),
+      },
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('does not call fetch when live apiKey is whitespace-only', async () => {
+    const fetchMock = vi.mocked(globalThis.fetch);
+    await expect(
+      summarizeObservationsPayload(
+        { pageCount: 1, sections: [{ sectionName: 's', observations: [{ text: 't' }] }] },
+        '',
+        {
+          authMode: 'live',
+          mockHeaderName: '',
+          mockHeaderValue: '',
+          apiKey: '   ',
+        },
+      ),
+    ).rejects.toMatchObject({
+      status: 0,
+      body: {
+        error: expect.objectContaining({ code: 'CLIENT_AUTH_CONFIG' }),
+      },
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('summarizeObservationsPayload client timeout and abort', () => {
+  const mockAuth = {
+    authMode: 'mock' as const,
+    mockHeaderName: 'X-Mock-Auth',
+    mockHeaderValue: 'test-token',
+    apiKey: '',
+  };
+
+  const payload = {
+    pageCount: 1,
+    sections: [{ sectionName: 's', observations: [{ text: 't' }] }],
+  };
+
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    globalThis.fetch = originalFetch;
+  });
+
+  it(
+    'rejects with CLIENT_SUMMARIZE_TIMEOUT when fetch never resolves',
+    async () => {
+      stubGlobalFetchHangRespectingSignal();
+      const p = summarizeObservationsPayload(payload, '', mockAuth, {
+        clientTimeoutMs: 40,
+      });
+      await expect(p).rejects.toMatchObject({
+        status: 0,
+        body: {
+          error: expect.objectContaining({ code: 'CLIENT_SUMMARIZE_TIMEOUT' }),
+        },
+      });
+    },
+    10_000,
+  );
+
+  it('throws SummarizeRequestAbortedError when signal is already aborted', async () => {
+    vi.stubGlobal('fetch', vi.fn());
+    const ac = new AbortController();
+    ac.abort();
+    await expect(
+      summarizeObservationsPayload(payload, '', mockAuth, {
+        signal: ac.signal,
+      }),
+    ).rejects.toBeInstanceOf(SummarizeRequestAbortedError);
+    expect(vi.mocked(globalThis.fetch)).not.toHaveBeenCalled();
+  });
+
+  it('throws SummarizeRequestAbortedError when signal aborts during a pending fetch', async () => {
+    stubGlobalFetchHangRespectingSignal();
+    const ac = new AbortController();
+    const p = summarizeObservationsPayload(payload, '', mockAuth, {
+      signal: ac.signal,
+      clientTimeoutMs: DEFAULT_SUMMARIZE_FETCH_TIMEOUT_MS,
+    });
+    ac.abort();
+    await expect(p).rejects.toBeInstanceOf(SummarizeRequestAbortedError);
   });
 });

@@ -16,8 +16,9 @@ describe('validateEnv', () => {
     expect(result.AUTH_MODE).toBe('mock');
     expect(result.LLM_BASE_URL).toBe('http://127.0.0.1:11434');
     expect(result.LLM_MODEL).toBe('llama3.2:1b');
-    expect(result.LLM_TIMEOUT_MS).toBe('120000');
+    expect(result.LLM_TIMEOUT_MS).toBe('300000');
     expect(result.LLM_API_KEY).toBe('');
+    expect(result.LLM_DEBUG_LOG).toBe('false');
   });
 
   it('throws naming AUTH_MODE when missing', () => {
@@ -109,5 +110,23 @@ describe('validateEnv', () => {
     expect(() => validateEnv({ ...baseMock, LLM_TIMEOUT_MS: 'abc' })).toThrow(
       /LLM_TIMEOUT_MS/,
     );
+  });
+
+  it('throws naming LLM_DEBUG_LOG when set to an invalid token', () => {
+    expect(() => validateEnv({ ...baseMock, LLM_DEBUG_LOG: 'maybe' })).toThrow(
+      /LLM_DEBUG_LOG/,
+    );
+  });
+
+  it('normalizes LLM_DEBUG_LOG truthy and falsy tokens', () => {
+    expect(
+      validateEnv({ ...baseMock, LLM_DEBUG_LOG: ' TRUE ' }).LLM_DEBUG_LOG,
+    ).toBe('true');
+    expect(validateEnv({ ...baseMock, LLM_DEBUG_LOG: '1' }).LLM_DEBUG_LOG).toBe(
+      'true',
+    );
+    expect(
+      validateEnv({ ...baseMock, LLM_DEBUG_LOG: 'off' }).LLM_DEBUG_LOG,
+    ).toBe('false');
   });
 });

@@ -20,7 +20,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "openapi:generate": "ts-node --files ./scripts/generate-openapi.ts",
-    "openapi:check": "npm run openapi:generate && node -e \"const { execSync } = require('node:child_process'); const status = execSync('git status --porcelain -- openapi/openapi.json', { encoding: 'utf8' }).trim(); if (status) { console.error('OpenAPI artifact is out of sync or untracked:\\n' + status); process.exit(1); }\"",
+    "openapi:check": "node -e \"const fs=require('node:fs'); const crypto=require('node:crypto'); const { execSync }=require('node:child_process'); const p='openapi/openapi.json'; const hash=()=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex'); const before=hash(); execSync('npm run openapi:generate',{stdio:'inherit'}); const after=hash(); if(before!==after){ console.error('OpenAPI artifact changed after generation:\\n'+p); process.exit(1); }\"",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },

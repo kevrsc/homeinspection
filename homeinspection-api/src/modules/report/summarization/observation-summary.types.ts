@@ -14,4 +14,9 @@ export type PrioritizedObservationItem = {
 export type ObservationSummaryResult = {
   executiveSummary: string;
   prioritizedItems: PrioritizedObservationItem[];
+  /**
+   * True when the server re-sorted or renumbered `prioritizedItems` ranks to contiguous 1..n
+   * (Story 5.9). Omitted when the model output already matched that shape and order.
+   */
+  ranksNormalized?: boolean;
 };

@@ -4,24 +4,45 @@ import type {
   PrioritizedObservationItem,
 } from './observation-summary.types';
 
-/** BOM, thinking/reasoning tags, and similar wrappers that break JSON.parse. */
-function stripModelNoise(text: string): string {
-  let t = text.replace(/^\uFEFF/, '').trimStart();
-  t = t
+/**
+ * Strips thinking/reasoning blocks only from the assistant **prefix** (before the JSON payload).
+ * Avoids mutating `</thinking>`-like substrings that appear **inside** JSON string values.
+ */
+function stripThinkingNoiseInPrefix(prefix: string): string {
+  let p = prefix;
+  p = p
     .replace(
       /\x3c\x74\x68\x69\x6e\x6b\x3e[\s\S]*?\x3c\/\x74\x68\x69\x6e\x6b\x3e/gi,
       '',
     )
-    .trim();
-  t = t.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
-  t = t.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '').trim();
-  t = t
+    .trimEnd();
+  p = p.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trimEnd();
+  p = p.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '').trimEnd();
+  p = p
     .replace(
       /\x3c\x72\x65\x64\x61\x63\x74\x65\x64\x5f\x72\x65\x61\x73\x6f\x6e\x69\x6e\x67\x3e[\s\S]*?\x3c\/\x72\x65\x64\x61\x63\x74\x65\x64\x5f\x72\x65\x61\x73\x6f\x6e\x69\x6e\x67\x3e/gi,
       '',
     )
-    .trim();
-  return t.trim();
+    .trimEnd();
+  return p;
+}
+
+/** BOM trim + thinking strips on prefix only, then the JSON-bearing suffix unchanged. */
+function stripModelNoise(text: string): string {
+  const t = text.replace(/^\uFEFF/, '').trimStart();
+  const brace = t.indexOf('{');
+  const bracket = t.indexOf('[');
+  const starts: number[] = [];
+  if (brace !== -1) {
+    starts.push(brace);
+  }
+  if (bracket !== -1) {
+    starts.push(bracket);
+  }
+  const jsonStart = starts.length === 0 ? t.length : Math.min(...starts);
+  const prefix = t.slice(0, jsonStart);
+  const suffix = t.slice(jsonStart);
+  return (stripThinkingNoiseInPrefix(prefix) + suffix).trim();
 }
 
 function stripOptionalMarkdownFence(text: string): string {
@@ -367,22 +388,40 @@ function readItems(raw: unknown): PrioritizedObservationItem[] {
  * LLMs often emit 0-based ranks, duplicates, or gaps. Preserve priority order
  * (ascending declared rank, stable for ties) then assign contiguous 1..n.
  */
-function normalizePrioritizedRanks(
-  items: PrioritizedObservationItem[],
-): PrioritizedObservationItem[] {
+function normalizePrioritizedRanks(items: PrioritizedObservationItem[]): {
+  items: PrioritizedObservationItem[];
+  ranksNormalized: boolean;
+} {
   if (items.length === 0) {
-    return [];
+    return { items: [], ranksNormalized: false };
   }
-  const sorted = [...items].sort((a, b) => {
-    if (a.rank !== b.rank) {
-      return a.rank - b.rank;
+  const indexed = items.map((item, index) => ({ item, index }));
+  indexed.sort((a, b) => {
+    if (a.item.rank !== b.item.rank) {
+      return a.item.rank - b.item.rank;
     }
-    return 0;
+    return a.index - b.index;
   });
-  return sorted.map((item, index) => ({
+  let ranksNormalized = false;
+  for (let i = 0; i < indexed.length; i += 1) {
+    if (indexed[i].item.rank !== i + 1) {
+      ranksNormalized = true;
+      break;
+    }
+  }
+  if (!ranksNormalized) {
+    for (let i = 0; i < indexed.length; i += 1) {
+      if (indexed[i].item !== items[i]) {
+        ranksNormalized = true;
+        break;
+      }
+    }
+  }
+  const out = indexed.map(({ item }, index) => ({
     ...item,
     rank: index + 1,
   }));
+  return { items: out, ranksNormalized };
 }
 
 /**
@@ -409,7 +448,10 @@ export function parseObservationSummaryFromAssistantText(
     readExecutiveSummaryWithFallback(executive);
   const rawList = resolvePrioritizedRaw(prioritized);
   const rawItems = readItems(rawList);
-  let prioritizedItems = normalizePrioritizedRanks(rawItems);
+  const { items: normalizedItems, ranksNormalized } =
+    normalizePrioritizedRanks(rawItems);
+  let prioritizedItems = normalizedItems;
+  let ranksNormalizedFlag = ranksNormalized;
   if (usedEmptyFallback && prioritizedItems.length === 0) {
     prioritizedItems = [
       {
@@ -419,10 +461,12 @@ export function parseObservationSummaryFromAssistantText(
           'The model did not return prioritized findings. Use the supplied section observations for details.',
       },
     ];
+    ranksNormalizedFlag = false;
   }
 
   return {
     executiveSummary,
     prioritizedItems,
+    ...(ranksNormalizedFlag ? { ranksNormalized: true } : {}),
   };
 }

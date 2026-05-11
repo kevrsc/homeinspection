@@ -2,6 +2,88 @@ import { BadRequestException } from '@nestjs/common';
 import type { ReportUploadResponseDto } from './extraction-response.dto';
 
 /**
+ * Hard caps for JSON summarize bodies (`POST /v1/report/summarize`) and extracted
+ * payloads before single-shot summarize (`POST /v1/report/summarize/file`).
+ * Must stay aligned with OpenAPI (`summarizeRequestBodyOpenApiSchema`).
+ */
+export const SUMMARIZE_MAX_PAGE_COUNT = 50_000;
+export const SUMMARIZE_MAX_SECTIONS = 80;
+export const SUMMARIZE_MAX_OBSERVATIONS_PER_SECTION = 2000;
+export const SUMMARIZE_MAX_SECTION_NAME_LENGTH = 256;
+export const SUMMARIZE_MAX_OBSERVATION_TEXT_LENGTH = 8192;
+
+function throwSummarizeLimitExceeded(
+  message: string,
+  details: Record<string, unknown>,
+): never {
+  throw new BadRequestException({
+    message,
+    details: {
+      code: 'SUMMARIZATION_BODY_LIMIT_EXCEEDED',
+      ...details,
+    },
+  });
+}
+
+/**
+ * Enforces Story 5.7 payload caps on an upload-shaped DTO (after structural validation).
+ * Used by JSON summarize and by the single-shot PDF → summarize path.
+ */
+export function enforceSummarizePayloadLimits(
+  dto: ReportUploadResponseDto,
+): void {
+  if (dto.pageCount > SUMMARIZE_MAX_PAGE_COUNT) {
+    throwSummarizeLimitExceeded(
+      `pageCount must be at most ${SUMMARIZE_MAX_PAGE_COUNT}.`,
+      { field: 'pageCount', max: SUMMARIZE_MAX_PAGE_COUNT },
+    );
+  }
+  if (dto.sections.length > SUMMARIZE_MAX_SECTIONS) {
+    throwSummarizeLimitExceeded(
+      `sections must contain at most ${SUMMARIZE_MAX_SECTIONS} entries.`,
+      { field: 'sections', max: SUMMARIZE_MAX_SECTIONS },
+    );
+  }
+  for (let si = 0; si < dto.sections.length; si += 1) {
+    const sec = dto.sections[si];
+    if (sec.sectionName.length > SUMMARIZE_MAX_SECTION_NAME_LENGTH) {
+      throwSummarizeLimitExceeded(
+        `sectionName at index ${si} exceeds ${SUMMARIZE_MAX_SECTION_NAME_LENGTH} characters after trim.`,
+        {
+          field: 'sectionName',
+          sectionIndex: si,
+          max: SUMMARIZE_MAX_SECTION_NAME_LENGTH,
+        },
+      );
+    }
+    if (sec.observations.length > SUMMARIZE_MAX_OBSERVATIONS_PER_SECTION) {
+      throwSummarizeLimitExceeded(
+        `observations at section index ${si} must contain at most ${SUMMARIZE_MAX_OBSERVATIONS_PER_SECTION} entries.`,
+        {
+          field: 'observations',
+          sectionIndex: si,
+          max: SUMMARIZE_MAX_OBSERVATIONS_PER_SECTION,
+        },
+      );
+    }
+    for (let oi = 0; oi < sec.observations.length; oi += 1) {
+      const t = sec.observations[oi].text;
+      if (t.length > SUMMARIZE_MAX_OBSERVATION_TEXT_LENGTH) {
+        throwSummarizeLimitExceeded(
+          `observation text at section ${si}, observation ${oi} exceeds ${SUMMARIZE_MAX_OBSERVATION_TEXT_LENGTH} characters after trim.`,
+          {
+            field: 'observations.text',
+            sectionIndex: si,
+            observationIndex: oi,
+            max: SUMMARIZE_MAX_OBSERVATION_TEXT_LENGTH,
+          },
+        );
+      }
+    }
+  }
+}
+
+/**
  * Validates JSON body for `POST /v1/report/summarize` (same shape as upload success).
  * Rejects empty trimmed `sectionName` (strict parity with upload-derived payloads).
  */
@@ -94,5 +176,7 @@ export function parseAndValidateSummarizeBody(
     outSections.push({ sectionName, observations: outObs });
   }
 
-  return { pageCount, sections: outSections };
+  const dto: ReportUploadResponseDto = { pageCount, sections: outSections };
+  enforceSummarizePayloadLimits(dto);
+  return dto;
 }

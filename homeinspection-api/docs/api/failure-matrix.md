@@ -163,9 +163,9 @@ Examples below are inline shapes aligned with OpenAPI and `http-exception.filter
 | Outcome | Trigger condition | HTTP status | Top-level code | Client handling guidance | Fixture |
 |---|---|---:|---|---|---|
 | Success | Valid auth, valid body, LLM returns parseable structured summary | 200 | n/a | Render `executiveSummary` and ordered `prioritizedItems`. | — |
-| Validation: body | Malformed JSON object, bad `pageCount`, empty `sectionName`, or empty observation `text` | 400 | `VALIDATION_FAILED` | Fix body to match upload success shape; inspect `details.code` when present. | — |
+| Validation: body | Malformed JSON object, bad `pageCount`, empty `sectionName`, empty observation `text`, or payload over configured caps (`sections` count, observations per section, string lengths — see OpenAPI `maxItems` / `maxLength` on summarize request) | 400 | `VALIDATION_FAILED` | Fix body to match upload success shape; inspect `details.code` (`SUMMARIZATION_BODY_INVALID` vs `SUMMARIZATION_BODY_LIMIT_EXCEEDED`). | — |
 | Unauthorized | Missing/invalid auth (same as upload) | 401 | `UNAUTHORIZED` | Re-authenticate before retrying. | `test/fixtures/json/upload-error-auth.json` |
-| Rate limited | Same sliding window as upload (`RATE_LIMIT_*`) | 429 | `RATE_LIMITED` | Back off; same semantics as upload. | `test/fixtures/json/upload-error-rate-limit.json` |
+| Rate limited | **Shared** sliding window per client identity across **`POST /v1/report/upload`**, **`POST /v1/report/summarize`**, and **`POST /v1/report/summarize/file`** (`RATE_LIMIT_*`) | 429 | `RATE_LIMITED` | Back off; heavy traffic on one route consumes quota for the others. | `test/fixtures/json/upload-error-rate-limit.json` |
 | Summarization timeout | LLM adapter abort / timeout | 408 | `SUMMARIZATION_TIMEOUT` | Retry later; `details.retryable` is true. | — |
 | Summarization invalid output | Model output failed schema validation | 422 | `SUMMARIZATION_FAILED` | Retry with same payload only if inputs changed; otherwise treat as model-side issue. | — |
 | Summarization upstream | LLM HTTP error or network unreachable | 502 | `SUMMARIZATION_UNAVAILABLE` | Retry later; do not treat as client validation error. | — |
@@ -200,6 +200,23 @@ Examples below are inline shapes aligned with OpenAPI and `http-exception.filter
 }
 ```
 
+### Failure: body over summarize caps (400)
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "message": "sections must contain at most 80 entries.",
+    "requestId": "00000000-0000-4000-8000-000000000000",
+    "details": {
+      "code": "SUMMARIZATION_BODY_LIMIT_EXCEEDED",
+      "field": "sections",
+      "max": 80
+    }
+  }
+}
+```
+
 ---
 
 # Single-shot summarize failure matrix (`POST /v1/report/summarize/file`)
@@ -216,6 +233,7 @@ Multipart **`file`** (same field name and PDF rules as **`POST /v1/report/upload
 | Validation: oversize | File exceeds 20 MB | 413 | `VALIDATION_FAILED` | Same as upload oversize. | `test/fixtures/json/upload-error-validation-size.json` |
 | Unauthorized | Missing/invalid auth | 401 | `UNAUTHORIZED` | Same as upload / summarize. | `test/fixtures/json/upload-error-auth.json` |
 | Rate limited | Same sliding window as other report POSTs (per `RATE_LIMIT_*` config) | 429 | `RATE_LIMITED` | Same as upload / JSON summarize. | `test/fixtures/json/upload-error-rate-limit.json` |
+| Validation: summarize caps | Extraction yields more sections/observations/text than JSON summarize allows | 400 | `VALIDATION_FAILED` | Same `SUMMARIZATION_BODY_LIMIT_EXCEEDED` semantics as JSON summarize after extract. | — |
 | Extraction failure | PDF parser cannot extract valid structure | 422 | `EXTRACTION_FAILED` | Same envelope as upload extraction failure. | `test/fixtures/json/upload-error-extraction.json` |
 | Extraction timeout | Extraction exceeds configured timeout | 408 | `EXTRACTION_TIMEOUT` | Same as upload timeout (`UPLOAD_PROCESSING_TIMEOUT`). | `test/fixtures/json/upload-error-timeout.json` |
 | Summarization timeout | LLM adapter timeout after successful extraction | 408 | `SUMMARIZATION_TIMEOUT` | Same as JSON summarize timeout. | — |

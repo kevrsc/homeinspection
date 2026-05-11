@@ -1,7 +1,9 @@
+import { BadRequestException } from '@nestjs/common';
 import {
   PdfExtractionError,
   PdfObservationExtractor,
 } from './extractors/pdf-observation-extractor.port';
+import { SUMMARIZE_MAX_SECTIONS } from './dto/summarize-request.validation';
 import { ReportService, UploadProcessingTimeoutError } from './report.service';
 import type { AiSummarizer } from './summarization/ai-summarizer.port';
 
@@ -281,5 +283,28 @@ describe('ReportService', () => {
     });
     expect(summarizeMock).toHaveBeenCalledWith(input, { signal: ac.signal });
     expect(extractMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects summarizeFromPdfBuffer when extracted payload exceeds summarize caps', async () => {
+    const observations = Array.from(
+      { length: SUMMARIZE_MAX_SECTIONS + 1 },
+      (_, i) => ({
+        section: `sec-${i}`,
+        text: 'obs',
+      }),
+    );
+    const extractMock = jest.fn().mockResolvedValue({
+      pageCount: 1,
+      observations,
+    });
+    const summarizeMock = jest.fn();
+    const summarizer: AiSummarizer = { summarize: summarizeMock };
+    const extractor: PdfObservationExtractor = { extract: extractMock };
+    const service = new ReportService(extractor, summarizer);
+
+    await expect(
+      service.summarizeFromPdfBuffer(Buffer.from('%PDF-1.4\nfake')),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(summarizeMock).not.toHaveBeenCalled();
   });
 });

@@ -389,7 +389,8 @@ export class ReportController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Validation failure (body shape).',
+    description:
+      'Validation failure (body shape, empty fields, or summarize payload caps — `details.code` is `SUMMARIZATION_BODY_INVALID` or `SUMMARIZATION_BODY_LIMIT_EXCEEDED`).',
     schema: uploadErrorSchema,
     example: summarizeOpenApiExamples.bodyInvalid.value,
   })

@@ -118,7 +118,7 @@ export function validateEnv(
 
   const llmTimeoutRaw = trimValue(config.LLM_TIMEOUT_MS);
   if (llmTimeoutRaw === undefined) {
-    out.LLM_TIMEOUT_MS = '120000';
+    out.LLM_TIMEOUT_MS = '300000';
   } else {
     const t = Number.parseInt(llmTimeoutRaw, 10);
     if (Number.isNaN(t) || t < 1) {
@@ -129,6 +129,20 @@ export function validateEnv(
   }
 
   out.LLM_API_KEY = trimValue(config.LLM_API_KEY) ?? '';
+
+  const llmDebugLogRaw = trimValue(config.LLM_DEBUG_LOG);
+  if (llmDebugLogRaw === undefined) {
+    out.LLM_DEBUG_LOG = 'false';
+  } else {
+    const v = llmDebugLogRaw.toLowerCase();
+    if (['1', 'true', 'yes', 'on'].includes(v)) {
+      out.LLM_DEBUG_LOG = 'true';
+    } else if (['0', 'false', 'no', 'off'].includes(v)) {
+      out.LLM_DEBUG_LOG = 'false';
+    } else {
+      errors.push('LLM_DEBUG_LOG');
+    }
+  }
 
   if (errors.length > 0) {
     const unique = [...new Set(errors)];

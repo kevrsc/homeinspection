@@ -70,6 +70,7 @@ describe('parseObservationSummaryFromAssistantText', () => {
         outOfOrder.prioritizedItems[1],
         outOfOrder.prioritizedItems[0],
       ],
+      ranksNormalized: true,
     };
     expect(
       parseObservationSummaryFromAssistantText(JSON.stringify(outOfOrder)),
@@ -208,6 +209,7 @@ describe('parseObservationSummaryFromAssistantText', () => {
       prioritizedItems: [
         { rank: 1, title: 'Only item', rationale: 'Details.' },
       ],
+      ranksNormalized: true,
     });
   });
 
@@ -293,6 +295,7 @@ describe('parseObservationSummaryFromAssistantText', () => {
         { rank: 1, title: 'a', rationale: 'b' },
         { rank: 2, title: 'c', rationale: 'd' },
       ],
+      ranksNormalized: true,
     });
 
     expect(
@@ -311,6 +314,7 @@ describe('parseObservationSummaryFromAssistantText', () => {
         { rank: 1, title: 'a', rationale: 'b' },
         { rank: 2, title: 'c', rationale: 'd' },
       ],
+      ranksNormalized: true,
     });
   });
 
@@ -331,6 +335,7 @@ describe('parseObservationSummaryFromAssistantText', () => {
         { rank: 1, title: 'First', rationale: 'R0.' },
         { rank: 2, title: 'Second', rationale: 'R1.' },
       ],
+      ranksNormalized: true,
     });
   });
 
@@ -373,5 +378,32 @@ describe('parseObservationSummaryFromAssistantText', () => {
         },
       ],
     });
+  });
+
+  it('does not strip </thinking> substrings inside JSON string values (Story 5.9)', () => {
+    const parsed = parseObservationSummaryFromAssistantText(
+      JSON.stringify({
+        executiveSummary: 'ok',
+        prioritizedItems: [
+          {
+            rank: 1,
+            title: 'Title',
+            rationale: 'See </thinking> inside rationale text.',
+          },
+        ],
+      }),
+    );
+    expect(parsed.prioritizedItems[0]?.rationale).toContain('</thinking>');
+  });
+
+  it('still strips thinking blocks in the prose prefix before JSON', () => {
+    const inner = JSON.stringify({
+      executiveSummary: 'cleared',
+      prioritizedItems: [{ rank: 1, title: 'T', rationale: 'R' }],
+    });
+    const wrapped = `<thinking>scratch</thinking>\n${inner}`;
+    expect(
+      parseObservationSummaryFromAssistantText(wrapped).executiveSummary,
+    ).toBe('cleared');
   });
 });

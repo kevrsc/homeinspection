@@ -15,7 +15,7 @@ export async function uploadReportPdf(
   const body = new FormData();
   body.append('file', file);
 
-  const response = await fetch(url, {
+  const response = await globalThis.fetch(url, {
     method: 'POST',
     headers: buildAuthHeaders(auth),
     body,

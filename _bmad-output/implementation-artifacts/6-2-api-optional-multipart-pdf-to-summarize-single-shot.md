@@ -1,6 +1,6 @@
 # Story 6.2: API — optional multipart PDF to summarize (single-shot)
 
-Status: review
+Status: done
 
 ## Story
 
@@ -130,7 +130,12 @@ Composer (Cursor agent)
 - `homeinspection-api/test/app.e2e-spec.ts`
 - `homeinspection-web/README.md`
 
+### Review Findings
+
+- [x] [Review][Defer] Request cancellation not wired on summarize routes — [`report.controller.ts`](../../homeinspection-api/src/modules/report/report.controller.ts) `summarizeFromPdfFileShell` and `summarizeShell` call `summarizeFromPdfBuffer` / `summarizeObservations` without `{ signal }`; matches current JSON path; defer until product defines client-abort semantics and Nest request teardown is plumbed consistently.
+
 ## Change Log
 
 - **2026-05-11:** Story file created (`ready-for-dev`) from user request; Epic **6** reopened in sprint for **6.2**.
 - **2026-05-10:** Implemented single-shot **`POST /v1/report/summarize/file`**; story status **`review`**; sprint **`6-2`** → **`review`**.
+- **2026-05-11:** Code review (scope `main...HEAD` on `add-llm`); automated tri-layer subagents did not return terminal output — primary verification against ACs; one defer (AbortSignal); story and sprint **`6-2`** → **`done`**.

@@ -1,3 +1,7 @@
+## Deferred from: code review of 6-2-api-optional-multipart-pdf-to-summarize-single-shot.md (2026-05-11)
+
+- Summarize routes (`POST /v1/report/summarize`, `POST /v1/report/summarize/file`) do not forward a request-scoped `AbortSignal` into `ReportService`; parity between JSON and multipart; revisit when cancellation/NFR is specified.
+
 ## Deferred from: code review of 4-2-design-tokens-and-responsive-layout-shell.md (2026-05-06)
 
 - Breakpoint reference tables appear in both `homeinspection-web/README.md` and `homeinspection-web/docs/design-foundations.md` — intentional redundancy; avoid drift when UX widths change.

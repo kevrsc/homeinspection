@@ -3,6 +3,14 @@
  * Merged into the generated document in `app.setup.ts` alongside live
  * `POST /v1/report/summarize` and `POST /v1/report/summarize/file` routes.
  */
+import {
+  SUMMARIZE_MAX_OBSERVATION_TEXT_LENGTH,
+  SUMMARIZE_MAX_OBSERVATIONS_PER_SECTION,
+  SUMMARIZE_MAX_PAGE_COUNT,
+  SUMMARIZE_MAX_SECTION_NAME_LENGTH,
+  SUMMARIZE_MAX_SECTIONS,
+} from '../modules/report/dto/summarize-request.validation';
+
 export const prioritizedObservationItemSchema = {
   type: 'object',
   required: ['rank', 'title', 'rationale'],
@@ -32,6 +40,11 @@ export const observationSummarySchema = {
       type: 'array',
       items: { $ref: '#/components/schemas/PrioritizedObservationItem' },
     },
+    ranksNormalized: {
+      type: 'boolean',
+      description:
+        'Present and true when item ranks were re-sorted or renumbered to contiguous 1..n (Story 5.9). Omitted when model ranks were already in priority order.',
+    },
   },
 };
 
@@ -40,20 +53,36 @@ export const summarizeRequestBodyOpenApiSchema = {
   type: 'object',
   required: ['pageCount', 'sections'],
   properties: {
-    pageCount: { type: 'integer', minimum: 0 },
+    pageCount: {
+      type: 'integer',
+      minimum: 0,
+      maximum: SUMMARIZE_MAX_PAGE_COUNT,
+    },
     sections: {
       type: 'array',
+      maxItems: SUMMARIZE_MAX_SECTIONS,
       items: {
         type: 'object',
         required: ['sectionName', 'observations'],
         properties: {
-          sectionName: { type: 'string' },
+          sectionName: {
+            type: 'string',
+            minLength: 1,
+            maxLength: SUMMARIZE_MAX_SECTION_NAME_LENGTH,
+          },
           observations: {
             type: 'array',
+            maxItems: SUMMARIZE_MAX_OBSERVATIONS_PER_SECTION,
             items: {
               type: 'object',
               required: ['text'],
-              properties: { text: { type: 'string' } },
+              properties: {
+                text: {
+                  type: 'string',
+                  minLength: 1,
+                  maxLength: SUMMARIZE_MAX_OBSERVATION_TEXT_LENGTH,
+                },
+              },
             },
           },
         },
@@ -83,6 +112,21 @@ export const summarizeOpenApiExamples = {
         message: 'sectionName must not be empty or whitespace-only.',
         requestId: '00000000-0000-4000-8000-000000000000',
         details: { code: 'SUMMARIZATION_BODY_INVALID' },
+      },
+    },
+  },
+  bodyLimitExceeded: {
+    summary: 'Summarize body over configured size/count caps (Story 5.7)',
+    value: {
+      error: {
+        code: 'VALIDATION_FAILED',
+        message: 'sections must contain at most 80 entries.',
+        requestId: '00000000-0000-4000-8000-000000000000',
+        details: {
+          code: 'SUMMARIZATION_BODY_LIMIT_EXCEEDED',
+          field: 'sections',
+          max: 80,
+        },
       },
     },
   },

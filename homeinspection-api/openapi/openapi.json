@@ -933,10 +933,12 @@
                 "properties": {
                   "pageCount": {
                     "type": "integer",
-                    "minimum": 0
+                    "minimum": 0,
+                    "maximum": 50000
                   },
                   "sections": {
                     "type": "array",
+                    "maxItems": 80,
                     "items": {
                       "type": "object",
                       "required": [
@@ -945,10 +947,13 @@
                       ],
                       "properties": {
                         "sectionName": {
-                          "type": "string"
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 256
                         },
                         "observations": {
                           "type": "array",
+                          "maxItems": 2000,
                           "items": {
                             "type": "object",
                             "required": [
@@ -956,7 +961,9 @@
                             ],
                             "properties": {
                               "text": {
-                                "type": "string"
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 8192
                               }
                             }
                           }
@@ -1014,7 +1021,7 @@
             }
           },
           "400": {
-            "description": "Validation failure (body shape).",
+            "description": "Validation failure (body shape, empty fields, or summarize payload caps — `details.code` is `SUMMARIZATION_BODY_INVALID` or `SUMMARIZATION_BODY_LIMIT_EXCEEDED`).",
             "content": {
               "application/json": {
                 "schema": {
@@ -1425,6 +1432,10 @@
             "items": {
               "$ref": "#/components/schemas/PrioritizedObservationItem"
             }
+          },
+          "ranksNormalized": {
+            "type": "boolean",
+            "description": "Present and true when item ranks were re-sorted or renumbered to contiguous 1..n (Story 5.9). Omitted when model ranks were already in priority order."
           }
         }
       }

@@ -10,17 +10,83 @@ import { OLLAMA_OBSERVATION_SUMMARY_FORMAT } from './ollama-observation-summary-
 import { parseObservationSummaryFromAssistantText } from './parse-observation-summary';
 import { SUMMARIZATION_SYSTEM_PROMPT } from './summarization-prompt';
 
+/**
+ * Resolves `POST …/api/chat` against `LLM_BASE_URL`, preserving non-root path prefixes
+ * (reverse proxies, sub-path mounts). Uses relative resolution so the configured pathname
+ * is not discarded (unlike `new URL('/api/chat', base)`).
+ */
+export function buildOllamaChatRequestUrl(baseUrl: string): string {
+  const parsed = new URL(baseUrl.trim());
+  const href = parsed.href;
+  const normalizedBase = href.endsWith('/') ? href : `${href}/`;
+  return new URL('api/chat', normalizedBase).href;
+}
+
+const DEBUG_LOG_USER_CONTENT_MAX = 2048;
+const DEBUG_LOG_HTTP_TEXT_MAX = 2048;
+const DEBUG_LOG_ASSISTANT_MAX = 4096;
+
+function truncateForDebugLog(label: string, text: string, max: number): string {
+  if (text.length <= max) {
+    return text;
+  }
+  return `${label}: ${text.length} chars (preview ${max}):\n${text.slice(0, max)}…`;
+}
+
+/** Redacts/truncates wire JSON so logs never ship full observation payloads (Story 5.8). */
+export function summarizeOllamaChatRequestJsonForDebug(
+  bodyJson: string,
+): unknown {
+  try {
+    const parsed = JSON.parse(bodyJson) as Record<string, unknown>;
+    const messages = parsed.messages;
+    if (!Array.isArray(messages)) {
+      return {
+        note: 'non-standard body shape for logging',
+        length: bodyJson.length,
+      };
+    }
+    return {
+      ...parsed,
+      messages: messages.map((m: unknown) => {
+        if (typeof m !== 'object' || m === null) {
+          return m;
+        }
+        const msg = { ...(m as Record<string, unknown>) };
+        if (msg.role === 'user' && typeof msg.content === 'string') {
+          msg.content = truncateForDebugLog(
+            'user_message',
+            msg.content,
+            DEBUG_LOG_USER_CONTENT_MAX,
+          );
+        }
+        if (msg.role === 'system' && typeof msg.content === 'string') {
+          msg.content = truncateForDebugLog(
+            'system_prompt',
+            msg.content,
+            DEBUG_LOG_USER_CONTENT_MAX,
+          );
+        }
+        return msg;
+      }),
+    };
+  } catch {
+    return {
+      unparsedBodyLength: bodyJson.length,
+      preview: bodyJson.slice(0, 512),
+    };
+  }
+}
+
 @Injectable()
 export class OllamaSummarizerAdapter implements AiSummarizer {
   private readonly logger = new Logger(OllamaSummarizerAdapter.name);
 
   constructor(private readonly config: ConfigService) {}
 
+  /** `LLM_DEBUG_LOG` is validated at bootstrap (`env.validation.ts`); runtime reads normalized `true`/`false`. */
   private isLlmDebugLog(): boolean {
-    const raw = (this.config.get<string>('LLM_DEBUG_LOG', '') ?? '')
-      .trim()
-      .toLowerCase();
-    return ['1', 'true', 'yes', 'on'].includes(raw);
+    return this.config.getOrThrow<string>('LLM_DEBUG_LOG') === 'true';
   }
 
   private sanitizeHeadersForLog(
@@ -70,7 +136,7 @@ export class OllamaSummarizerAdapter implements AiSummarizer {
 
       const apiKey = this.config.get<string>('LLM_API_KEY', '') ?? '';
 
-      const chatUrl = new URL('/api/chat', baseUrl).toString();
+      const chatUrl = buildOllamaChatRequestUrl(baseUrl);
       const body = JSON.stringify({
         model,
         stream: false,
@@ -99,7 +165,7 @@ export class OllamaSummarizerAdapter implements AiSummarizer {
               url: chatUrl,
               method: 'POST',
               headers: this.sanitizeHeadersForLog(headers),
-              bodyRaw: body,
+              body: summarizeOllamaChatRequestJsonForDebug(body),
             },
             null,
             2,
@@ -122,7 +188,11 @@ export class OllamaSummarizerAdapter implements AiSummarizer {
             {
               httpStatus: response.status,
               statusText: response.statusText,
-              bodyRaw: text,
+              bodyText: truncateForDebugLog(
+                'response_text',
+                text,
+                DEBUG_LOG_HTTP_TEXT_MAX,
+              ),
             },
             null,
             2,
@@ -159,7 +229,11 @@ export class OllamaSummarizerAdapter implements AiSummarizer {
 
       if (this.isLlmDebugLog()) {
         this.logger.log(
-          `[LLM_DEBUG] Assistant content string (before observation-summary parse):\n${content}`,
+          `[LLM_DEBUG] Assistant content (truncated): ${truncateForDebugLog(
+            'assistant_text',
+            content,
+            DEBUG_LOG_ASSISTANT_MAX,
+          )}`,
         );
       }
 

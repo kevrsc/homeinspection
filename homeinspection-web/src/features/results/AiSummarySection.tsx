@@ -1,5 +1,9 @@
-import { useEffect, useState } from 'react';
-import { summarizeObservationsPayload } from '../../api/summarizeReport';
+import { useEffect, useRef, useState } from 'react';
+import {
+  summarizeClientTimeoutDisplayLabel,
+  summarizeObservationsPayload,
+  SummarizeRequestAbortedError,
+} from '../../api/summarizeReport';
 import { readWebConfig } from '../../config';
 import { UploadErrorPanel } from '../upload/UploadErrorPanel';
 import {
@@ -22,6 +26,14 @@ export function AiSummarySection({ uploadPayload }: Props) {
   const [summary, setSummary] = useState<ObservationSummary | null>(null);
   const [failure, setFailure] = useState<ParsedUploadFailure | null>(null);
   const [announcement, setAnnouncement] = useState('');
+  const requestGenerationRef = useRef(0);
+  const inFlightAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      inFlightAbortRef.current?.abort();
+    };
+  }, []);
 
   useEffect(() => {
     if (!failure) {
@@ -34,6 +46,12 @@ export function AiSummarySection({ uploadPayload }: Props) {
   }, [failure]);
 
   async function onRequestSummary() {
+    inFlightAbortRef.current?.abort();
+    const abortController = new AbortController();
+    inFlightAbortRef.current = abortController;
+
+    const generation = ++requestGenerationRef.current;
+
     setFailure(null);
     setPhase('loading');
     setAnnouncement('Requesting AI summary.');
@@ -47,11 +65,21 @@ export function AiSummarySection({ uploadPayload }: Props) {
           mockHeaderValue: cfg.mockHeaderValue,
           apiKey: cfg.apiKey,
         },
+        { signal: abortController.signal },
       );
+      if (generation !== requestGenerationRef.current) {
+        return;
+      }
       setSummary(data);
       setPhase('success');
       setAnnouncement('AI summary loaded.');
     } catch (err) {
+      if (err instanceof SummarizeRequestAbortedError) {
+        return;
+      }
+      if (generation !== requestGenerationRef.current) {
+        return;
+      }
       const ex = err as Error & { status?: number; body?: unknown };
       const httpStatus =
         typeof ex.status === 'number' && Number.isFinite(ex.status)
@@ -89,7 +117,10 @@ export function AiSummarySection({ uploadPayload }: Props) {
           className="max-w-prose text-sm leading-relaxed text-fg-muted"
         >
           Optional. Typical wait is up to about{' '}
-          <strong className="font-medium text-fg">30 seconds</strong>.
+          <strong className="font-medium text-fg">
+            {summarizeClientTimeoutDisplayLabel()}
+          </strong>
+          .
         </p>
       </div>
 
@@ -97,7 +128,8 @@ export function AiSummarySection({ uploadPayload }: Props) {
         <div className="rounded-[var(--radius-card)] border border-border bg-surface px-4 py-3 text-sm leading-relaxed text-fg">
           <p className="font-medium text-fg">Requesting summary</p>
           <p className="mt-1 text-fg-muted">
-            This step can take up to about 30 seconds for typical workloads.
+            This step can take up to about{' '}
+            {summarizeClientTimeoutDisplayLabel()} for typical workloads.
           </p>
         </div>
       ) : null}

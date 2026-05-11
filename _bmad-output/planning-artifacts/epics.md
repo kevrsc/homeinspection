@@ -670,6 +670,30 @@ So that merges stay reliable and fast.
 **And** at least one test covers provider failure and timeout mapping to the stable error envelope.  
 **And** tests do not require network access to external LLM providers.
 
+### Story 5.6: Ollama adapter — respect `LLM_BASE_URL` path prefix
+
+As an operator,  
+I want the summarization HTTP adapter to preserve pathname segments on **`LLM_BASE_URL`**,  
+So that reverse-proxy and non-root LLM deployments call the correct upstream chat URL.
+
+### Story 5.7: JSON summarize — payload limits, OpenAPI parity, rate-limit policy
+
+As an API operator,  
+I want bounded JSON summarize bodies, OpenAPI that matches runtime validation, and an explicit rate-limit stance across upload vs summarize routes,  
+So that resource exhaustion and client drift are reduced.
+
+### Story 5.8: LLM debug logging — env validation and redaction
+
+As a security-conscious operator,  
+I want debug logging switches validated at startup and logs redacted by default,  
+So that inspection content cannot leak through misconfigured logging.
+
+### Story 5.9: Observation summary parser — strictness and normalization metadata
+
+As an API consumer,  
+I want invalid model output to fail predictably and any rank/text normalization to be visible or documented,  
+So that silent coercion does not mask regressions or corrupt user-visible strings.
+
 ---
 
 ## Epic 6: Web UI — optional AI summary after PDF upload (`POST /v1/report/summarize`)
@@ -708,7 +732,19 @@ So that thin clients could one-shot “PDF → summary” **if** we extend the c
 
 **And** **`openapi.json`**, **failure matrix**, and **web client** are updated together (no drift).
 
-**Note:** Deferred until **Story 6.1** shipped. A dedicated story file (**`6-2-api-optional-multipart-pdf-to-summarize-single-shot.md`**) now tracks implementation (`ready-for-dev` in sprint status); it may still be **cancelled** if the two-step JSON flow remains sufficient for all clients.
+**Note:** Deferred until **Story 6.1** shipped. Story **`6-2-api-optional-multipart-pdf-to-summarize-single-shot.md`** tracks **`POST /v1/report/summarize/file`** (done in sprint). Follow-up hardening from code review is tracked in Stories **5.6–5.9** and **6.3–6.4**.
+
+### Story 6.3: Web — summarize client timeouts, abort, and in-flight safety
+
+As a homeowner,  
+I want summarize requests to time out and cancel cleanly on navigation or stalled networks,  
+So that the UI never hangs indefinitely and does not apply stale results.
+
+### Story 6.4: Web — summarize auth headers and payload strictness
+
+As a developer,  
+I want empty API keys to fail before **`Authorization: Bearer`** is sent and invalid **`pageCount`** not silently coerced,  
+So that misconfiguration and bad payloads surface clearly.
 
 ---
 
