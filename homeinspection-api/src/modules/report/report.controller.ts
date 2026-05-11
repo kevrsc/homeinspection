@@ -1,5 +1,7 @@
 import {
+  BadGatewayException,
   BadRequestException,
+  Body,
   Controller,
   HttpCode,
   HttpException,
@@ -21,9 +23,17 @@ import {
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
+import { parseAndValidateSummarizeBody } from './dto/summarize-request.validation';
 import { ReportUploadResponseDto } from './dto/extraction-response.dto';
 import { PdfExtractionError } from './extractors/pdf-observation-extractor.port';
 import { ReportService, UploadProcessingTimeoutError } from './report.service';
+import { SummarizationProviderError } from './summarization/ai-summarizer.port';
+import type { ObservationSummaryResult } from './summarization/observation-summary.types';
+import {
+  observationSummaryOpenApiExample,
+  summarizeOpenApiExamples,
+  summarizeRequestBodyOpenApiSchema,
+} from '../../openapi/summarization.openapi';
 import {
   uploadErrorSchema,
   uploadOpenApiExamples,
@@ -74,6 +84,34 @@ function getExtractionErrorDetails(error: PdfExtractionError): {
   }
 
   return details;
+}
+
+function mapSummarizationProviderError(
+  error: SummarizationProviderError,
+): never {
+  switch (error.code) {
+    case 'INVALID_RESPONSE':
+      throw new UnprocessableEntityException({
+        message: 'Summarization could not produce a valid structured response.',
+        details: { code: 'SUMMARIZATION_INVALID_RESPONSE' },
+      });
+    case 'TIMEOUT':
+      throw new RequestTimeoutException({
+        message: 'Summarization timed out. Please retry later.',
+        details: { code: 'SUMMARIZATION_TIMEOUT', retryable: true },
+      });
+    case 'HTTP_ERROR':
+    case 'UNREACHABLE':
+      throw new BadGatewayException({
+        message: 'Summarization service is temporarily unavailable.',
+        details: {
+          code: 'SUMMARIZATION_UPSTREAM_ERROR',
+          providerCode: error.code,
+        },
+      });
+    default:
+      throw new InternalServerErrorException();
+  }
 }
 
 @ApiTags('report')
@@ -220,6 +258,81 @@ export class ReportController {
         message: 'PDF parsing failed. Please upload a different PDF file.',
         details: getExtractionErrorDetails(error),
       });
+    }
+  }
+
+  @UseGuards(ApiKeyGuard)
+  @Post('summarize')
+  @HttpCode(200)
+  @ApiOperation({
+    summary:
+      'Summarize prior extraction output (JSON body same shape as upload success).',
+  })
+  @ApiSecurity('mockAuth')
+  @ApiBody({
+    description:
+      'Section-linked observations (`pageCount` + `sections[]`) matching upload success.',
+    schema: summarizeRequestBodyOpenApiSchema,
+    examples: {
+      observations: summarizeOpenApiExamples.requestBody,
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Structured AI summary of the supplied observations.',
+    schema: { $ref: '#/components/schemas/ObservationSummary' },
+    example: observationSummaryOpenApiExample,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation failure (body shape).',
+    schema: uploadErrorSchema,
+    example: summarizeOpenApiExamples.bodyInvalid.value,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized.',
+    schema: uploadErrorSchema,
+    example: uploadOpenApiExamples.unauthorized.value,
+  })
+  @ApiResponse({
+    status: 408,
+    description: 'Summarization timeout.',
+    schema: uploadErrorSchema,
+    example: summarizeOpenApiExamples.summarizationTimeout.value,
+  })
+  @ApiResponse({
+    status: 422,
+    description: 'Summarization could not produce valid structured output.',
+    schema: uploadErrorSchema,
+    example: summarizeOpenApiExamples.summarizationInvalid.value,
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Rate limited.',
+    schema: uploadErrorSchema,
+    example: uploadOpenApiExamples.rateLimited.value,
+  })
+  @ApiResponse({
+    status: 502,
+    description: 'Summarization upstream unavailable.',
+    schema: uploadErrorSchema,
+    example: summarizeOpenApiExamples.summarizationUnavailable.value,
+  })
+  async summarizeShell(
+    @Body() body: unknown,
+  ): Promise<ObservationSummaryResult> {
+    const dto = parseAndValidateSummarizeBody(body);
+    try {
+      return await this.reportService.summarizeObservations(dto);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      if (error instanceof SummarizationProviderError) {
+        return mapSummarizationProviderError(error);
+      }
+      throw new InternalServerErrorException();
     }
   }
 }

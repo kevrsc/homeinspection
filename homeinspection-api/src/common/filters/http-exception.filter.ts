@@ -93,6 +93,15 @@ function mapDetailCodeToTopLevelCode(
   if (detailCode === 'UPLOAD_PROCESSING_TIMEOUT') {
     return 'EXTRACTION_TIMEOUT';
   }
+  if (detailCode === 'SUMMARIZATION_INVALID_RESPONSE') {
+    return 'SUMMARIZATION_FAILED';
+  }
+  if (detailCode === 'SUMMARIZATION_TIMEOUT') {
+    return 'SUMMARIZATION_TIMEOUT';
+  }
+  if (detailCode === 'SUMMARIZATION_UPSTREAM_ERROR') {
+    return 'SUMMARIZATION_UNAVAILABLE';
+  }
   return undefined;
 }
 

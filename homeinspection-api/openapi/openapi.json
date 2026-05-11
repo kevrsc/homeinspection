@@ -453,11 +453,464 @@
           "report"
         ]
       }
+    },
+    "/v1/report/summarize": {
+      "post": {
+        "operationId": "ReportController_summarizeShell",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "description": "Section-linked observations (`pageCount` + `sections[]`) matching upload success.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "pageCount",
+                  "sections"
+                ],
+                "properties": {
+                  "pageCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "sections": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "sectionName",
+                        "observations"
+                      ],
+                      "properties": {
+                        "sectionName": {
+                          "type": "string"
+                        },
+                        "observations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "text"
+                            ],
+                            "properties": {
+                              "text": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "examples": {
+                "observations": {
+                  "summary": "Observations payload (same as upload success)",
+                  "value": {
+                    "pageCount": 1,
+                    "sections": [
+                      {
+                        "sectionName": "roof",
+                        "observations": [
+                          {
+                            "text": "Damaged shingle near ridge"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Structured AI summary of the supplied observations.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObservationSummary"
+                },
+                "example": {
+                  "executiveSummary": "The roof section shows localized wear; plumbing was not flagged in the supplied observations.",
+                  "prioritizedItems": [
+                    {
+                      "rank": 1,
+                      "title": "Roof: damaged shingles near ridge",
+                      "rationale": "Observation text notes missing shingles at the ridge; address before wet season to reduce leak risk."
+                    },
+                    {
+                      "rank": 2,
+                      "title": "Document remaining sections with your contractor",
+                      "rationale": "Only roof observations were provided; verify other systems with a walkthrough."
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failure (body shape).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "requestId": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "oneOf": [
+                            {
+                              "type": "object"
+                            },
+                            {
+                              "type": "array"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_FAILED",
+                    "message": "sectionName must not be empty or whitespace-only.",
+                    "requestId": "00000000-0000-4000-8000-000000000000",
+                    "details": {
+                      "code": "SUMMARIZATION_BODY_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "requestId": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "oneOf": [
+                            {
+                              "type": "object"
+                            },
+                            {
+                              "type": "array"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                },
+                "example": {
+                  "error": {
+                    "code": "UNAUTHORIZED",
+                    "message": "Unauthorized",
+                    "requestId": "00000000-0000-4000-8000-000000000000"
+                  }
+                }
+              }
+            }
+          },
+          "408": {
+            "description": "Summarization timeout.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "requestId": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "oneOf": [
+                            {
+                              "type": "object"
+                            },
+                            {
+                              "type": "array"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                },
+                "example": {
+                  "error": {
+                    "code": "SUMMARIZATION_TIMEOUT",
+                    "message": "Summarization timed out. Please retry later.",
+                    "requestId": "00000000-0000-4000-8000-000000000000",
+                    "details": {
+                      "code": "SUMMARIZATION_TIMEOUT",
+                      "retryable": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Summarization could not produce valid structured output.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "requestId": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "oneOf": [
+                            {
+                              "type": "object"
+                            },
+                            {
+                              "type": "array"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                },
+                "example": {
+                  "error": {
+                    "code": "SUMMARIZATION_FAILED",
+                    "message": "Summarization could not produce a valid structured response.",
+                    "requestId": "00000000-0000-4000-8000-000000000000",
+                    "details": {
+                      "code": "SUMMARIZATION_INVALID_RESPONSE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "requestId": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "oneOf": [
+                            {
+                              "type": "object"
+                            },
+                            {
+                              "type": "array"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                },
+                "example": {
+                  "error": {
+                    "code": "RATE_LIMITED",
+                    "message": "Too Many Requests",
+                    "requestId": "00000000-0000-4000-8000-000000000000",
+                    "details": {
+                      "code": "RATE_LIMIT_EXCEEDED",
+                      "windowMinutes": 60,
+                      "maxRequests": 2
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Summarization upstream unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "requestId": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "oneOf": [
+                            {
+                              "type": "object"
+                            },
+                            {
+                              "type": "array"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                },
+                "example": {
+                  "error": {
+                    "code": "SUMMARIZATION_UNAVAILABLE",
+                    "message": "Summarization service is temporarily unavailable.",
+                    "requestId": "00000000-0000-4000-8000-000000000000",
+                    "details": {
+                      "code": "SUMMARIZATION_UPSTREAM_ERROR",
+                      "providerCode": "UNREACHABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "mockAuth": []
+          }
+        ],
+        "summary": "Summarize prior extraction output (JSON body same shape as upload success).",
+        "tags": [
+          "report"
+        ]
+      }
     }
   },
   "info": {
     "title": "homeinspection-api",
-    "description": "OpenAPI contract for v1 report upload endpoint.",
+    "description": "OpenAPI contract for v1 report upload and summarize. Components include ObservationSummary (AI summarization output; Story 5.3).",
     "version": "1.0.0",
     "contact": {}
   },
@@ -471,6 +924,49 @@
         "name": "x-mock-auth"
       }
     },
-    "schemas": {}
+    "schemas": {
+      "PrioritizedObservationItem": {
+        "type": "object",
+        "required": [
+          "rank",
+          "title",
+          "rationale"
+        ],
+        "properties": {
+          "rank": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "1-based priority; sequence must be contiguous when sorted."
+          },
+          "title": {
+            "type": "string",
+            "description": "Short headline."
+          },
+          "rationale": {
+            "type": "string",
+            "description": "Why this matters, grounded in supplied observations."
+          }
+        }
+      },
+      "ObservationSummary": {
+        "type": "object",
+        "required": [
+          "executiveSummary",
+          "prioritizedItems"
+        ],
+        "properties": {
+          "executiveSummary": {
+            "type": "string",
+            "description": "High-level narrative for the homeowner."
+          },
+          "prioritizedItems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PrioritizedObservationItem"
+            }
+          }
+        }
+      }
+    }
   }
 }

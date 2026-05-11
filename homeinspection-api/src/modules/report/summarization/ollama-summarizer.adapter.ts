@@ -6,6 +6,8 @@ import {
   SummarizationProviderError,
   SummarizationResult,
 } from './ai-summarizer.port';
+import { parseObservationSummaryFromAssistantText } from './parse-observation-summary';
+import { SUMMARIZATION_SYSTEM_PROMPT } from './summarization-prompt';
 
 @Injectable()
 export class OllamaSummarizerAdapter implements AiSummarizer {
@@ -43,6 +45,7 @@ export class OllamaSummarizerAdapter implements AiSummarizer {
       model,
       stream: false,
       messages: [
+        { role: 'system', content: SUMMARIZATION_SYSTEM_PROMPT },
         {
           role: 'user',
           content: JSON.stringify(input),
@@ -93,7 +96,7 @@ export class OllamaSummarizerAdapter implements AiSummarizer {
         );
       }
 
-      return { content };
+      return parseObservationSummaryFromAssistantText(content);
     } catch (error) {
       if (error instanceof SummarizationProviderError) {
         throw error;

@@ -32,9 +32,11 @@ export class AppModule implements NestModule {
       path: '*',
       method: RequestMethod.ALL,
     });
-    consumer.apply(RateLimitMiddleware).forRoutes({
-      path: 'v1/report/upload',
-      method: RequestMethod.POST,
-    });
+    consumer
+      .apply(RateLimitMiddleware)
+      .forRoutes(
+        { path: 'v1/report/upload', method: RequestMethod.POST },
+        { path: 'v1/report/summarize', method: RequestMethod.POST },
+      );
   }
 }

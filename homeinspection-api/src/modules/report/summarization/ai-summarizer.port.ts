@@ -1,8 +1,11 @@
 import type { ReportUploadResponseDto } from '../dto/extraction-response.dto';
+import type { ObservationSummaryResult } from './observation-summary.types';
 
-export type SummarizationResult = {
-  content: string;
-};
+export type SummarizationResult = ObservationSummaryResult;
+export type {
+  ObservationSummaryResult,
+  PrioritizedObservationItem,
+} from './observation-summary.types';
 
 export type SummarizationErrorCode =
   | 'UNREACHABLE'

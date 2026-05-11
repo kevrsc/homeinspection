@@ -256,6 +256,7 @@ describe('AppController (e2e)', () => {
           paths?: Record<string, unknown>;
           components?: {
             securitySchemes?: Record<string, unknown>;
+            schemas?: Record<string, unknown>;
           };
         };
         const uploadPath = body.paths?.['/v1/report/upload'] as
@@ -277,6 +278,24 @@ describe('AppController (e2e)', () => {
           | undefined;
 
         expect(uploadPath).toBeDefined();
+        const summarizePath = body.paths?.['/v1/report/summarize'] as
+          | {
+              post?: {
+                requestBody?: {
+                  content?: { 'application/json'?: { schema?: unknown } };
+                };
+                responses?: Record<string, unknown>;
+                security?: Array<Record<string, unknown>>;
+              };
+            }
+          | undefined;
+        expect(summarizePath?.post).toBeDefined();
+        expect(
+          summarizePath?.post?.requestBody?.content?.['application/json']
+            ?.schema,
+        ).toBeDefined();
+        expect(summarizePath?.post?.responses?.['200']).toBeDefined();
+        expect(summarizePath?.post?.responses?.['502']).toBeDefined();
         expect(uploadPath?.post?.responses?.['200']).toBeDefined();
         expect(uploadPath?.post?.responses?.['400']).toBeDefined();
         expect(uploadPath?.post?.responses?.['401']).toBeDefined();
@@ -289,6 +308,10 @@ describe('AppController (e2e)', () => {
             ?.schema?.required,
         ).toContain('file');
         expect(body.components?.securitySchemes?.mockAuth).toBeDefined();
+        expect(body.components?.schemas?.ObservationSummary).toBeDefined();
+        expect(
+          body.components?.schemas?.PrioritizedObservationItem,
+        ).toBeDefined();
         const firstSecurityRequirement = uploadPath?.post?.security?.[0] as
           | { mockAuth?: unknown[] }
           | undefined;

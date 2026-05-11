@@ -150,3 +150,52 @@ Below are copy-paste shapes aligned with `test/fixtures/json/*.json`. Prefer ope
   }
 }
 ```
+
+---
+
+# Summarize failure matrix (`POST /v1/report/summarize`)
+
+Documents runtime-aligned outcomes for the JSON summarize endpoint (same request body shape as upload success).  
+Examples below are inline shapes aligned with OpenAPI and `http-exception.filter.ts`; dedicated JSON fixtures may be added in Story 5.5.
+
+## Outcome matrix (summarize)
+
+| Outcome | Trigger condition | HTTP status | Top-level code | Client handling guidance | Fixture |
+|---|---|---:|---|---|---|
+| Success | Valid auth, valid body, LLM returns parseable structured summary | 200 | n/a | Render `executiveSummary` and ordered `prioritizedItems`. | — |
+| Validation: body | Malformed JSON object, bad `pageCount`, empty `sectionName`, or empty observation `text` | 400 | `VALIDATION_FAILED` | Fix body to match upload success shape; inspect `details.code` when present. | — |
+| Unauthorized | Missing/invalid auth (same as upload) | 401 | `UNAUTHORIZED` | Re-authenticate before retrying. | `test/fixtures/json/upload-error-auth.json` |
+| Rate limited | Same sliding window as upload (`RATE_LIMIT_*`) | 429 | `RATE_LIMITED` | Back off; same semantics as upload. | `test/fixtures/json/upload-error-rate-limit.json` |
+| Summarization timeout | LLM adapter abort / timeout | 408 | `SUMMARIZATION_TIMEOUT` | Retry later; `details.retryable` is true. | — |
+| Summarization invalid output | Model output failed schema validation | 422 | `SUMMARIZATION_FAILED` | Retry with same payload only if inputs changed; otherwise treat as model-side issue. | — |
+| Summarization upstream | LLM HTTP error or network unreachable | 502 | `SUMMARIZATION_UNAVAILABLE` | Retry later; do not treat as client validation error. | — |
+
+## Example JSON (summarize)
+
+### Success response (inline example)
+
+```json
+{
+  "executiveSummary": "Roof wear is the primary theme in the supplied notes.",
+  "prioritizedItems": [
+    {
+      "rank": 1,
+      "title": "Roof: damaged shingles near ridge",
+      "rationale": "Observation text notes missing shingles at the ridge."
+    }
+  ]
+}
+```
+
+### Failure: invalid body (400)
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "message": "sectionName must not be empty or whitespace-only.",
+    "requestId": "00000000-0000-4000-8000-000000000000",
+    "details": { "code": "SUMMARIZATION_BODY_INVALID" }
+  }
+}
+```

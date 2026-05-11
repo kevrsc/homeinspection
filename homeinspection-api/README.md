@@ -92,7 +92,7 @@ Story **2.9** publishes integration aids for consumer apps:
 - Failure matrix: `docs/api/failure-matrix.md`
 - Copy-paste JSON fixtures: `test/fixtures/json/`
 
-These artifacts are runtime-aligned references for success and representative failure classes.
+These artifacts are runtime-aligned references for success and representative failure classes for **`POST /v1/report/upload`** and **`POST /v1/report/summarize`**.
 
 ## Extension ports & future phases
 

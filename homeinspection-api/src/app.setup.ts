@@ -1,6 +1,10 @@
 import { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import {
+  observationSummarySchema,
+  prioritizedObservationItemSchema,
+} from './openapi/summarization.openapi';
+import {
   MOCK_AUTH_HEADER_NAME,
   OPENAPI_DOC_PATH,
 } from './openapi/upload.openapi';
@@ -8,7 +12,9 @@ import {
 function createOpenApiConfig() {
   return new DocumentBuilder()
     .setTitle('homeinspection-api')
-    .setDescription('OpenAPI contract for v1 report upload endpoint.')
+    .setDescription(
+      'OpenAPI contract for v1 report upload and summarize. Components include ObservationSummary (AI summarization output; Story 5.3).',
+    )
     .setVersion('1.0.0')
     .addApiKey(
       {
@@ -22,7 +28,13 @@ function createOpenApiConfig() {
 }
 
 export function createOpenApiDocument(app: INestApplication) {
-  return SwaggerModule.createDocument(app, createOpenApiConfig());
+  const document = SwaggerModule.createDocument(app, createOpenApiConfig());
+  document.components ??= {};
+  document.components.schemas ??= {};
+  document.components.schemas.PrioritizedObservationItem =
+    prioritizedObservationItemSchema;
+  document.components.schemas.ObservationSummary = observationSummarySchema;
+  return document;
 }
 
 export function setupApp(app: INestApplication): void {

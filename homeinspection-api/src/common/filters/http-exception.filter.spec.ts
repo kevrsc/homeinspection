@@ -37,6 +37,79 @@ describe('http-exception.filter helpers', () => {
     });
   });
 
+  it('maps SUMMARIZATION_INVALID_RESPONSE detail to SUMMARIZATION_FAILED', () => {
+    const exception = new HttpException(
+      {
+        message: 'Summarization could not produce a valid structured response.',
+        details: { code: 'SUMMARIZATION_INVALID_RESPONSE' },
+      },
+      HttpStatus.UNPROCESSABLE_ENTITY,
+    );
+
+    expect(buildErrorEnvelope(exception, 'rid-s1')).toEqual({
+      statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+      body: {
+        error: {
+          code: 'SUMMARIZATION_FAILED',
+          message:
+            'Summarization could not produce a valid structured response.',
+          requestId: 'rid-s1',
+          details: { code: 'SUMMARIZATION_INVALID_RESPONSE' },
+        },
+      },
+    });
+  });
+
+  it('maps SUMMARIZATION_TIMEOUT detail to top-level SUMMARIZATION_TIMEOUT', () => {
+    const exception = new HttpException(
+      {
+        message: 'Summarization timed out. Please retry later.',
+        details: { code: 'SUMMARIZATION_TIMEOUT', retryable: true },
+      },
+      HttpStatus.REQUEST_TIMEOUT,
+    );
+
+    expect(buildErrorEnvelope(exception, 'rid-s2')).toEqual({
+      statusCode: HttpStatus.REQUEST_TIMEOUT,
+      body: {
+        error: {
+          code: 'SUMMARIZATION_TIMEOUT',
+          message: 'Summarization timed out. Please retry later.',
+          requestId: 'rid-s2',
+          details: { code: 'SUMMARIZATION_TIMEOUT', retryable: true },
+        },
+      },
+    });
+  });
+
+  it('maps SUMMARIZATION_UPSTREAM_ERROR detail to SUMMARIZATION_UNAVAILABLE', () => {
+    const exception = new HttpException(
+      {
+        message: 'Summarization service is temporarily unavailable.',
+        details: {
+          code: 'SUMMARIZATION_UPSTREAM_ERROR',
+          providerCode: 'HTTP_ERROR',
+        },
+      },
+      HttpStatus.BAD_GATEWAY,
+    );
+
+    expect(buildErrorEnvelope(exception, 'rid-s3')).toEqual({
+      statusCode: HttpStatus.BAD_GATEWAY,
+      body: {
+        error: {
+          code: 'SUMMARIZATION_UNAVAILABLE',
+          message: 'Summarization service is temporarily unavailable.',
+          requestId: 'rid-s3',
+          details: {
+            code: 'SUMMARIZATION_UPSTREAM_ERROR',
+            providerCode: 'HTTP_ERROR',
+          },
+        },
+      },
+    });
+  });
+
   it('sanitizes unexpected errors to internal message', () => {
     const exception = new Error(
       'SQL connection failed with stack trace details',

@@ -16,6 +16,24 @@ describe('OllamaSummarizerAdapter', () => {
     ],
   };
 
+  const validStructuredSummary = {
+    executiveSummary: 'Roof section needs attention.',
+    prioritizedItems: [
+      {
+        rank: 1,
+        title: 'Missing shingles',
+        rationale: 'Observation text notes missing shingles.',
+      },
+    ],
+  };
+
+  const ollamaAssistantPayload = (content: string): string =>
+    JSON.stringify({
+      model: 'llama3.2:1b',
+      message: { role: 'assistant', content },
+      done: true,
+    });
+
   const makeConfig = (
     overrides: Partial<Record<string, string>> = {},
   ): ConfigService => {
@@ -55,23 +73,19 @@ describe('OllamaSummarizerAdapter', () => {
     jest.restoreAllMocks();
   });
 
-  it('returns assistant content on 200 with Ollama chat shape', async () => {
+  it('returns structured summary on 200 with Ollama chat shape', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       status: 200,
       text: () =>
         Promise.resolve(
-          JSON.stringify({
-            model: 'llama3.2:1b',
-            message: { role: 'assistant', content: 'Summary here' },
-            done: true,
-          }),
+          ollamaAssistantPayload(JSON.stringify(validStructuredSummary)),
         ),
     });
 
     const adapter = new OllamaSummarizerAdapter(makeConfig());
     const result: SummarizationResult = await adapter.summarize(sampleInput);
-    expect(result.content).toBe('Summary here');
+    expect(result).toEqual(validStructuredSummary);
     expect(global.fetch).toHaveBeenCalledWith(
       'http://127.0.0.1:11434/api/chat',
       expect.objectContaining({
@@ -88,7 +102,9 @@ describe('OllamaSummarizerAdapter', () => {
     };
     expect(body.stream).toBe(false);
     expect(body.model).toBe('llama3.2:1b');
-    expect(JSON.parse(body.messages[0].content)).toEqual(sampleInput);
+    expect(body.messages[0].role).toBe('system');
+    expect(body.messages[1].role).toBe('user');
+    expect(JSON.parse(body.messages[1].content)).toEqual(sampleInput);
   });
 
   it('sends Authorization when LLM_API_KEY is set', async () => {
@@ -97,9 +113,7 @@ describe('OllamaSummarizerAdapter', () => {
       status: 200,
       text: () =>
         Promise.resolve(
-          JSON.stringify({
-            message: { role: 'assistant', content: 'ok' },
-          }),
+          ollamaAssistantPayload(JSON.stringify(validStructuredSummary)),
         ),
     });
 
@@ -139,11 +153,24 @@ describe('OllamaSummarizerAdapter', () => {
     expect((err as Error & { cause?: unknown }).cause).toBe('internal error');
   });
 
-  it('maps invalid JSON body to INVALID_RESPONSE', async () => {
+  it('maps invalid Ollama envelope JSON to INVALID_RESPONSE', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       status: 200,
       text: () => Promise.resolve('not-json'),
+    });
+
+    const adapter = new OllamaSummarizerAdapter(makeConfig());
+    await expect(adapter.summarize(sampleInput)).rejects.toMatchObject({
+      code: 'INVALID_RESPONSE',
+    });
+  });
+
+  it('maps non-JSON assistant content to INVALID_RESPONSE', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: () => Promise.resolve(ollamaAssistantPayload('plain text')),
     });
 
     const adapter = new OllamaSummarizerAdapter(makeConfig());
