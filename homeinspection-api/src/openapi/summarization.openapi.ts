@@ -1,7 +1,7 @@
 /**
  * OpenAPI 3 schema fragments for AI observation summary (Story 5.3).
- * Merged into the generated document in `app.setup.ts` until Story 5.4
- * exposes a live summarize route in the spec.
+ * Merged into the generated document in `app.setup.ts` alongside live
+ * `POST /v1/report/summarize` and `POST /v1/report/summarize/file` routes.
  */
 export const prioritizedObservationItemSchema = {
   type: 'object',

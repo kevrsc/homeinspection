@@ -13,7 +13,7 @@ function createOpenApiConfig() {
   return new DocumentBuilder()
     .setTitle('homeinspection-api')
     .setDescription(
-      'OpenAPI contract for v1 report upload and summarize. Components include ObservationSummary (AI summarization output; Story 5.3).',
+      'OpenAPI contract for v1 report upload, JSON summarize, and multipart single-shot summarize/file. Components include ObservationSummary (AI summarization output; Story 5.3).',
     )
     .setVersion('1.0.0')
     .addApiKey(

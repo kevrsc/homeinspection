@@ -37,6 +37,7 @@ export class AppModule implements NestModule {
       .forRoutes(
         { path: 'v1/report/upload', method: RequestMethod.POST },
         { path: 'v1/report/summarize', method: RequestMethod.POST },
+        { path: 'v1/report/summarize/file', method: RequestMethod.POST },
       );
   }
 }

@@ -199,3 +199,25 @@ Examples below are inline shapes aligned with OpenAPI and `http-exception.filter
   }
 }
 ```
+
+---
+
+# Single-shot summarize failure matrix (`POST /v1/report/summarize/file`)
+
+Multipart **`file`** (same field name and PDF rules as **`POST /v1/report/upload`**). The server runs **extract → summarize** in one request. Outcomes combine **upload-class** validation and extraction errors with **JSON summarize-class** summarization failures.
+
+## Outcome matrix (single-shot PDF → summary)
+
+| Outcome | Trigger condition | HTTP status | Top-level code | Client handling guidance | Fixture |
+|---|---|---:|---|---|---|
+| Success | Valid PDF, extraction succeeds, LLM returns parseable summary | 200 | n/a | Same as JSON summarize success body (`ObservationSummary`). | — |
+| Validation: file required | Request omits multipart `file` | 400 | `VALIDATION_FAILED` | Same as upload missing file. | `test/fixtures/json/upload-error-validation-missing-file.json` |
+| Validation: wrong type / magic | Not `application/pdf` or missing `%PDF-` prefix | 400 | `VALIDATION_FAILED` | Same as upload non-PDF. | `test/fixtures/json/upload-error-validation-type.json` |
+| Validation: oversize | File exceeds 20 MB | 413 | `VALIDATION_FAILED` | Same as upload oversize. | `test/fixtures/json/upload-error-validation-size.json` |
+| Unauthorized | Missing/invalid auth | 401 | `UNAUTHORIZED` | Same as upload / summarize. | `test/fixtures/json/upload-error-auth.json` |
+| Rate limited | Same sliding window as other report POSTs (per `RATE_LIMIT_*` config) | 429 | `RATE_LIMITED` | Same as upload / JSON summarize. | `test/fixtures/json/upload-error-rate-limit.json` |
+| Extraction failure | PDF parser cannot extract valid structure | 422 | `EXTRACTION_FAILED` | Same envelope as upload extraction failure. | `test/fixtures/json/upload-error-extraction.json` |
+| Extraction timeout | Extraction exceeds configured timeout | 408 | `EXTRACTION_TIMEOUT` | Same as upload timeout (`UPLOAD_PROCESSING_TIMEOUT`). | `test/fixtures/json/upload-error-timeout.json` |
+| Summarization timeout | LLM adapter timeout after successful extraction | 408 | `SUMMARIZATION_TIMEOUT` | Same as JSON summarize timeout. | — |
+| Summarization invalid output | Model output failed schema validation | 422 | `SUMMARIZATION_FAILED` | Same as JSON summarize invalid response. | — |
+| Summarization upstream | LLM HTTP error or unreachable | 502 | `SUMMARIZATION_UNAVAILABLE` | Same as JSON summarize upstream. | — |

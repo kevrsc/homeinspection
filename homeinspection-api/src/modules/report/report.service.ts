@@ -35,6 +35,18 @@ export class ReportService {
     return this.summarizer.summarize(input, options);
   }
 
+  /**
+   * Single-shot PDF → summary: same extractor path as upload (`extractPreview`),
+   * then JSON summarize (`summarizeObservations`).
+   */
+  async summarizeFromPdfBuffer(
+    pdfBuffer: Buffer,
+    options?: { signal?: AbortSignal },
+  ): Promise<ObservationSummaryResult> {
+    const dto = await this.extractPreview(pdfBuffer);
+    return this.summarizeObservations(dto, options);
+  }
+
   async extractPreview(pdfBuffer: Buffer): Promise<ReportUploadResponseDto> {
     const timeoutMs = this.getTimeoutMs();
     const extraction = await this.extractWithTimeout(pdfBuffer, timeoutMs);

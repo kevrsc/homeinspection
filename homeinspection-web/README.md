@@ -77,6 +77,12 @@ npm run dev
 
 For a **successful extraction (HTTP 200)**, use any **normal PDF** you have locally (e.g. export a Word/Google Doc to PDF). The repo fixture `homeinspection-api/test/fixtures/valid-upload.pdf` is only for **mocked** API e2e tests—it passes upload validation but **`pdf-parse` fails** on it, so the live API returns **422** extraction errors. Success navigates to **`/results`** with raw JSON.
 
+## Optional AI summary (`POST /v1/report/summarize`)
+
+**Story 6.1 — two-step flow:** **`POST /v1/report/upload`** (multipart PDF) returns observation JSON; the results screen can optionally call **`POST /v1/report/summarize`** with **`Content-Type: application/json`** and a body in the **same shape** as that upload success payload (**`pageCount`** + **`sections[]`** — not a PDF multipart). The path uses singular **`report`**: **`/v1/report/summarize`** (see [`homeinspection-api/openapi/openapi.json`](../homeinspection-api/openapi/openapi.json)). Auth matches upload: mock header pair or **`Authorization: Bearer`** from `VITE_API_KEY`. With **`VITE_API_BASE_URL` empty** and **`npm run dev`**, the Vite **`/v1` proxy** applies the same way as for upload (`VITE_PROXY_TARGET`).
+
+**Story 6.2 — one-step API (integrators):** **`POST /v1/report/summarize/file`** accepts the same multipart **`file`** field as upload and returns **`ObservationSummary`** directly (extract then summarize on the server). Use it when you do not need the intermediate observation JSON; the web UI continues to use the two-step flow above.
+
 ## curl parity (multipart field `file`)
 
 ```bash
@@ -95,4 +101,4 @@ curl -sS -X POST "http://localhost:3000/v1/report/upload" ^
 | `npm run build` | Production bundle |
 | `npm run preview` | Preview production build |
 | `npm run lint` | ESLint |
-| `npm run test` | Vitest (config helpers) |
+| `npm run test` | Vitest (unit + a11y regression) |

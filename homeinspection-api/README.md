@@ -92,7 +92,7 @@ Story **2.9** publishes integration aids for consumer apps:
 - Failure matrix: `docs/api/failure-matrix.md`
 - Copy-paste JSON fixtures: `test/fixtures/json/`
 
-These artifacts are runtime-aligned references for success and representative failure classes for **`POST /v1/report/upload`** and **`POST /v1/report/summarize`**.
+These artifacts are runtime-aligned references for success and representative failure classes for **`POST /v1/report/upload`**, **`POST /v1/report/summarize`**, and **`POST /v1/report/summarize/file`** (multipart PDF → `ObservationSummary` in one round-trip).
 
 ## Extension ports & future phases
 
@@ -111,6 +111,11 @@ Story **2.10** documents where later capabilities attach **without** changing th
 
 **Contract anchor:** runtime response and error shapes remain documented in [`docs/api/failure-matrix.md`](docs/api/failure-matrix.md) and OpenAPI (`openapi/openapi.json`).
 
+## Report summarize flows (Epic 6)
+
+- **`POST /v1/report/summarize`** — send **`application/json`** with the same shape as **`POST /v1/report/upload`** success (`pageCount` + `sections[]`). Use when you already hold observation JSON (for example the web UI after upload).
+- **`POST /v1/report/summarize/file`** — send **`multipart/form-data`** with field **`file`** (same PDF rules as upload). The server runs extract then summarize and returns **`ObservationSummary`**. Prefer this for integrators who only need the summary in one HTTP round-trip. Expect higher end-to-end latency than JSON-only summarize (extraction plus LLM); align **`UPLOAD_PROCESSING_TIMEOUT_MS`** and summarizer adapter timeouts with your NFRs.
+
 ## Local LLM (Epic 5, Story 5.1)
 
 Run an **[Ollama](https://ollama.com/)** container next to the API for upcoming summarize features. **CI does not start this service** — use it only when you want real inference on your machine.
@@ -128,6 +133,10 @@ docker compose up -d
 ```
 
 Compose publishes **`11434` on the host loopback only** (`127.0.0.1:11434` → container `11434`). Align optional env placeholders in [`.env.example`](.env.example) (`LLM_BASE_URL`).
+
+The API’s Ollama adapter calls **`POST /api/chat`** with a **JSON Schema `format`** (structured outputs) so the reply matches **`executiveSummary`** + **`prioritizedItems`**, plus a tolerant parser (prose wrappers, thinking tags, alternate key casings, single-item objects, etc.). Use a **current Ollama** release; very old builds may not accept schema `format` and can return HTTP errors instead.
+
+Set **`LLM_DEBUG_LOG=true`** in `.env` to log the **full wire request and response** for `/api/chat` (Bearer header value redacted). Logs include the **exact assistant string** passed into the observation-summary parser—useful when debugging **`SUMMARIZATION_INVALID_RESPONSE`**. Turn off after debugging; payloads can be large.
 
 ### Pull a small model (CPU-friendly baseline)
 

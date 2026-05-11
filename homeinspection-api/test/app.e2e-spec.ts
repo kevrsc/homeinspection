@@ -330,6 +330,31 @@ describe('AppController (e2e)', () => {
         ).toBeDefined();
         expect(summarizePath?.post?.responses?.['200']).toBeDefined();
         expect(summarizePath?.post?.responses?.['502']).toBeDefined();
+        const summarizeFilePath = body.paths?.['/v1/report/summarize/file'] as
+          | {
+              post?: {
+                operationId?: string;
+                requestBody?: {
+                  content?: {
+                    'multipart/form-data'?: {
+                      schema?: { required?: string[] };
+                    };
+                  };
+                };
+                responses?: Record<string, unknown>;
+              };
+            }
+          | undefined;
+        expect(summarizeFilePath?.post).toBeDefined();
+        expect(summarizeFilePath?.post?.operationId).toBe(
+          'reportSummarizeFromPdfFile',
+        );
+        expect(
+          summarizeFilePath?.post?.requestBody?.content?.['multipart/form-data']
+            ?.schema?.required,
+        ).toContain('file');
+        expect(summarizeFilePath?.post?.responses?.['200']).toBeDefined();
+        expect(summarizeFilePath?.post?.responses?.['502']).toBeDefined();
         expect(uploadPath?.post?.responses?.['200']).toBeDefined();
         expect(uploadPath?.post?.responses?.['400']).toBeDefined();
         expect(uploadPath?.post?.responses?.['401']).toBeDefined();
@@ -365,6 +390,39 @@ describe('AppController (e2e)', () => {
         expect(summarizeMock).toHaveBeenCalledTimes(1);
         expect(summarizeMock).toHaveBeenCalledWith(
           parseAndValidateSummarizeBody(summarizeRequestBody),
+          undefined,
+        );
+      });
+  });
+
+  it('returns 200 with mock observation summary for POST /v1/report/summarize/file', () => {
+    summarizeMock.mockClear();
+    return request(app.getHttpServer())
+      .post('/v1/report/summarize/file')
+      .set('x-mock-auth', 'e2e-placeholder-not-a-secret')
+      .attach('file', validPdfFixture, {
+        filename: 'valid.pdf',
+        contentType: 'application/pdf',
+      })
+      .expect(200)
+      .expect('Content-Type', /json/)
+      .expect((res) => {
+        expect(res.body).toEqual(e2eMockObservationSummary);
+        expect(summarizeMock).toHaveBeenCalledTimes(1);
+        expect(summarizeMock).toHaveBeenCalledWith(
+          {
+            pageCount: 1,
+            sections: [
+              {
+                sectionName: 'roof',
+                observations: [{ text: 'Damaged shingle near ridge' }],
+              },
+              {
+                sectionName: 'plumbing',
+                observations: [{ text: 'Slow leak at shutoff valve' }],
+              },
+            ],
+          },
           undefined,
         );
       });

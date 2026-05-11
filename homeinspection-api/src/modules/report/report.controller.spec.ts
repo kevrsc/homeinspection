@@ -250,4 +250,81 @@ describe('ReportController', () => {
       },
     });
   });
+
+  it('returns structured summary from multipart PDF single-shot path', async () => {
+    const summary = {
+      executiveSummary: 'Roof needs attention.',
+      prioritizedItems: [
+        { rank: 1, title: 'Vent', rationale: 'Noted in PDF extraction.' },
+      ],
+    };
+    const summarizeFromPdfBuffer = jest.fn().mockResolvedValue(summary);
+    const reportService = {
+      extractPreview: jest.fn(),
+      summarizeObservations: jest.fn(),
+      summarizeFromPdfBuffer,
+    } as unknown as ReportService;
+    const controller = new ReportController(reportService);
+
+    await expect(
+      controller.summarizeFromPdfFileShell(validFile),
+    ).resolves.toEqual(summary);
+    expect(summarizeFromPdfBuffer).toHaveBeenCalledWith(validFile.buffer);
+  });
+
+  it('maps extraction failure on single-shot summarize-from-PDF path', async () => {
+    const reportService = {
+      summarizeFromPdfBuffer: jest
+        .fn()
+        .mockRejectedValue(new PdfExtractionError('bad')),
+    } as unknown as ReportService;
+    const controller = new ReportController(reportService);
+
+    await expect(
+      controller.summarizeFromPdfFileShell(validFile),
+    ).rejects.toMatchObject({
+      status: 422,
+      response: {
+        message: 'PDF parsing failed. Please upload a different PDF file.',
+        details: { code: 'UPLOAD_PDF_PARSE_FAILED', retryable: false },
+      },
+    });
+  });
+
+  it('maps SummarizationProviderError on single-shot summarize-from-PDF path', async () => {
+    const reportService = {
+      summarizeFromPdfBuffer: jest
+        .fn()
+        .mockRejectedValue(
+          new SummarizationProviderError('INVALID_RESPONSE', 'bad'),
+        ),
+    } as unknown as ReportService;
+    const controller = new ReportController(reportService);
+
+    await expect(
+      controller.summarizeFromPdfFileShell(validFile),
+    ).rejects.toMatchObject({
+      status: 422,
+      response: {
+        details: { code: 'SUMMARIZATION_INVALID_RESPONSE' },
+      },
+    });
+  });
+
+  it('rejects single-shot summarize when multipart file is missing', async () => {
+    const reportService = {
+      summarizeFromPdfBuffer: jest.fn(),
+    } as unknown as ReportService;
+    const controller = new ReportController(reportService);
+
+    await expect(
+      controller.summarizeFromPdfFileShell(undefined),
+    ).rejects.toMatchObject({
+      status: 400,
+      response: {
+        message: 'PDF file is required.',
+        details: { code: 'UPLOAD_FILE_REQUIRED' },
+      },
+    });
+  });
 });

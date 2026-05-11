@@ -190,6 +190,66 @@ describe('ReportService', () => {
     ).rejects.toBeInstanceOf(UploadProcessingTimeoutError);
   });
 
+  it('runs extract then summarize in summarizeFromPdfBuffer', async () => {
+    const extractMock = jest.fn().mockResolvedValue({
+      pageCount: 1,
+      observations: [{ section: 'roof', text: 'Leak at vent' }],
+    });
+    const summarizeMock = jest.fn().mockResolvedValue({
+      executiveSummary: 'Roof issue noted.',
+      prioritizedItems: [
+        { rank: 1, title: 'Vent leak', rationale: 'Input observation.' },
+      ],
+    });
+    const summarizer: AiSummarizer = { summarize: summarizeMock };
+    const extractor: PdfObservationExtractor = { extract: extractMock };
+    const service = new ReportService(extractor, summarizer);
+    const pdfBuffer = Buffer.from('%PDF-1.4\nfake');
+
+    await expect(service.summarizeFromPdfBuffer(pdfBuffer)).resolves.toEqual({
+      executiveSummary: 'Roof issue noted.',
+      prioritizedItems: [
+        { rank: 1, title: 'Vent leak', rationale: 'Input observation.' },
+      ],
+    });
+    expect(summarizeMock).toHaveBeenCalledWith(
+      {
+        pageCount: 1,
+        sections: [
+          {
+            sectionName: 'roof',
+            observations: [{ text: 'Leak at vent' }],
+          },
+        ],
+      },
+      undefined,
+    );
+  });
+
+  it('passes AbortSignal through summarizeFromPdfBuffer to summarizer', async () => {
+    const extractMock = jest.fn().mockResolvedValue({
+      pageCount: 1,
+      observations: [{ section: 'roof', text: 'Leak' }],
+    });
+    const summarizeMock = jest.fn().mockResolvedValue({
+      executiveSummary: 'S',
+      prioritizedItems: [],
+    });
+    const summarizer: AiSummarizer = { summarize: summarizeMock };
+    const extractor: PdfObservationExtractor = { extract: extractMock };
+    const service = new ReportService(extractor, summarizer);
+    const ac = new AbortController();
+
+    await service.summarizeFromPdfBuffer(Buffer.from('%PDF-1.4\nfake'), {
+      signal: ac.signal,
+    });
+
+    expect(summarizeMock).toHaveBeenCalledWith(
+      expect.objectContaining({ pageCount: 1 }),
+      { signal: ac.signal },
+    );
+  });
+
   it('delegates summarizeObservations to the AI summarizer port', async () => {
     const extractMock = jest.fn();
     const summarizeMock = jest.fn().mockResolvedValue({

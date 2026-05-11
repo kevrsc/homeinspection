@@ -1,6 +1,5 @@
 import {
   BadGatewayException,
-  BadRequestException,
   Body,
   Controller,
   HttpCode,
@@ -38,22 +37,7 @@ import {
   uploadErrorSchema,
   uploadOpenApiExamples,
 } from '../../openapi/upload.openapi';
-
-type UploadedFileLike = {
-  mimetype: string;
-  buffer: Buffer;
-};
-
-function isUploadedFileLike(value: unknown): value is UploadedFileLike {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-
-  const candidate = value as Partial<UploadedFileLike>;
-  return (
-    typeof candidate.mimetype === 'string' && Buffer.isBuffer(candidate.buffer)
-  );
-}
+import { assertValidUploadedPdfFile } from './uploaded-pdf-file.validation';
 
 function getExtractionErrorDetails(error: PdfExtractionError): {
   code: 'UPLOAD_PDF_PARSE_FAILED';
@@ -118,6 +102,67 @@ function mapSummarizationProviderError(
 @Controller('v1/report')
 export class ReportController {
   constructor(private readonly reportService: ReportService) {}
+
+  private throwMappedExtractionPipelineError(error: unknown): never {
+    if (error instanceof HttpException) {
+      throw error;
+    }
+    if (error instanceof UploadProcessingTimeoutError) {
+      throw new RequestTimeoutException({
+        message:
+          'Upload processing timed out. Please retry with a smaller file or try again later.',
+        details: {
+          code: 'UPLOAD_PROCESSING_TIMEOUT',
+          retryable: true,
+          timeoutMs: error.timeoutMs,
+        },
+      });
+    }
+    if (!(error instanceof PdfExtractionError)) {
+      throw new InternalServerErrorException();
+    }
+    throw new UnprocessableEntityException({
+      message: 'PDF parsing failed. Please upload a different PDF file.',
+      details: getExtractionErrorDetails(error),
+    });
+  }
+
+  private throwMappedPdfSingleShotError(error: unknown): never {
+    if (error instanceof HttpException) {
+      throw error;
+    }
+    if (error instanceof UploadProcessingTimeoutError) {
+      throw new RequestTimeoutException({
+        message:
+          'Upload processing timed out. Please retry with a smaller file or try again later.',
+        details: {
+          code: 'UPLOAD_PROCESSING_TIMEOUT',
+          retryable: true,
+          timeoutMs: error.timeoutMs,
+        },
+      });
+    }
+    if (error instanceof PdfExtractionError) {
+      throw new UnprocessableEntityException({
+        message: 'PDF parsing failed. Please upload a different PDF file.',
+        details: getExtractionErrorDetails(error),
+      });
+    }
+    if (error instanceof SummarizationProviderError) {
+      mapSummarizationProviderError(error);
+    }
+    throw new InternalServerErrorException();
+  }
+
+  private throwMappedSummarizationOnlyError(error: unknown): never {
+    if (error instanceof HttpException) {
+      throw error;
+    }
+    if (error instanceof SummarizationProviderError) {
+      mapSummarizationProviderError(error);
+    }
+    throw new InternalServerErrorException();
+  }
 
   @UseGuards(ApiKeyGuard)
   @UseInterceptors(
@@ -216,48 +261,98 @@ export class ReportController {
   async uploadShell(
     @UploadedFile() file?: unknown,
   ): Promise<ReportUploadResponseDto> {
-    if (!isUploadedFileLike(file)) {
-      throw new BadRequestException({
-        message: 'PDF file is required.',
-        details: { code: 'UPLOAD_FILE_REQUIRED' },
-      });
-    }
-
-    const looksLikePdf =
-      file.buffer.length >= 5 &&
-      file.buffer.subarray(0, 5).toString('ascii') === '%PDF-';
-
-    if (file.mimetype !== 'application/pdf' || !looksLikePdf) {
-      throw new BadRequestException({
-        message: 'Only PDF uploads are supported.',
-        details: { code: 'UPLOAD_PDF_REQUIRED' },
-      });
-    }
-
+    const valid = assertValidUploadedPdfFile(file);
     try {
-      return await this.reportService.extractPreview(file.buffer);
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      if (error instanceof UploadProcessingTimeoutError) {
-        throw new RequestTimeoutException({
-          message:
-            'Upload processing timed out. Please retry with a smaller file or try again later.',
-          details: {
-            code: 'UPLOAD_PROCESSING_TIMEOUT',
-            retryable: true,
-            timeoutMs: error.timeoutMs,
-          },
-        });
-      }
-      if (!(error instanceof PdfExtractionError)) {
-        throw new InternalServerErrorException();
-      }
-      throw new UnprocessableEntityException({
-        message: 'PDF parsing failed. Please upload a different PDF file.',
-        details: getExtractionErrorDetails(error),
-      });
+      return await this.reportService.extractPreview(valid.buffer);
+    } catch (error: unknown) {
+      this.throwMappedExtractionPipelineError(error);
+    }
+  }
+
+  @UseGuards(ApiKeyGuard)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 20 * 1024 * 1024 },
+    }),
+  )
+  @Post('summarize/file')
+  @HttpCode(200)
+  @ApiOperation({
+    operationId: 'reportSummarizeFromPdfFile',
+    summary:
+      'Upload a PDF and return a structured AI summary in one request (extract then summarize).',
+  })
+  @ApiSecurity('mockAuth')
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Inspection report PDF file (max 20 MB).',
+        },
+      },
+      required: ['file'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Structured AI summary after successful PDF extraction.',
+    schema: { $ref: '#/components/schemas/ObservationSummary' },
+    example: observationSummaryOpenApiExample,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation failure (missing file or non-PDF).',
+    schema: uploadErrorSchema,
+    example: uploadOpenApiExamples.validationFailed.value,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized.',
+    schema: uploadErrorSchema,
+    example: uploadOpenApiExamples.unauthorized.value,
+  })
+  @ApiResponse({
+    status: 413,
+    description: 'Upload payload exceeds the configured file size limit.',
+    schema: uploadErrorSchema,
+    example: uploadOpenApiExamples.payloadTooLarge.value,
+  })
+  @ApiResponse({
+    status: 408,
+    description: 'Extraction timeout or summarization timeout.',
+    schema: uploadErrorSchema,
+    example: uploadOpenApiExamples.extractionTimeout.value,
+  })
+  @ApiResponse({
+    status: 422,
+    description: 'Extraction failure or summarization invalid output.',
+    schema: uploadErrorSchema,
+    example: uploadOpenApiExamples.extractionFailed.value,
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Rate limited.',
+    schema: uploadErrorSchema,
+    example: uploadOpenApiExamples.rateLimited.value,
+  })
+  @ApiResponse({
+    status: 502,
+    description: 'Summarization upstream unavailable.',
+    schema: uploadErrorSchema,
+    example: summarizeOpenApiExamples.summarizationUnavailable.value,
+  })
+  async summarizeFromPdfFileShell(
+    @UploadedFile() file?: unknown,
+  ): Promise<ObservationSummaryResult> {
+    const valid = assertValidUploadedPdfFile(file);
+    try {
+      return await this.reportService.summarizeFromPdfBuffer(valid.buffer);
+    } catch (error: unknown) {
+      this.throwMappedPdfSingleShotError(error);
     }
   }
 
@@ -325,14 +420,8 @@ export class ReportController {
     const dto = parseAndValidateSummarizeBody(body);
     try {
       return await this.reportService.summarizeObservations(dto);
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      if (error instanceof SummarizationProviderError) {
-        return mapSummarizationProviderError(error);
-      }
-      throw new InternalServerErrorException();
+    } catch (error: unknown) {
+      this.throwMappedSummarizationOnlyError(error);
     }
   }
 }
