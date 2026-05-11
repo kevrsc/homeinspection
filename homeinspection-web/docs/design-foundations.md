@@ -67,6 +67,13 @@ Tune contrast pairs to meet audit targets; keep **semantic names** stable so uti
 
 `src/layout/AppShell.tsx`: `min-h-screen`, centered column, `max-w-3xl` → `lg:max-w-4xl`, horizontal padding **`px-4 sm:px-6`**. Routed pages render inside `<Outlet />`.
 
+## Upload constraints & bounded wait (Story 4.3 / UX-DR6)
+
+- **Constraints-before-picker:** The upload route surfaces **PDF-only** and **20 MB max** in plain language **before** the user activates the file input — aligned with [`docs/ux-backlog.md`](../../docs/ux-backlog.md) **UX-DR6** and server docs [`failure-matrix.md`](../../homeinspection-api/docs/api/failure-matrix.md).
+- **Client mirrors:** `src/features/upload/uploadLimits.ts` exports **`MAX_UPLOAD_BYTES`** (same literal intent as Nest upload limits); `validatePdfFile` rejects oversized/wrong-type selections before `fetch`.
+- **Bounded waiting:** During submission, copy references **about 30 seconds** as a typical prototype upper bound (**NFR1** in [`prd.md`](../../_bmad-output/planning-artifacts/prd.md)) — **not** framed as a guarantee.
+- **Reduced motion:** `UploadProcessingStatus` uses **`motion-safe:` / `motion-reduce:`** Tailwind variants so spinners drop to a static indicator when **`prefers-reduced-motion: reduce`**.
+
 ## References
 
 - UX backlog: [`../../docs/ux-backlog.md`](../../docs/ux-backlog.md) (UX-DR9, DR4/DR5).
