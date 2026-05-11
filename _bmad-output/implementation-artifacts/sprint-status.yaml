@@ -1,5 +1,5 @@
 # generated: 2026-05-04
-# last_updated: 2026-05-11 (Story 4.4 review)
+# last_updated: 2026-05-11 (Story 4.5 review)
 # project: homeinspection
 # project_key: NOKEY
 # tracking_system: file-system
@@ -76,8 +76,8 @@ development_status:
   4-1-web-client-scaffold-and-api-integration: done
   4-2-design-tokens-and-responsive-layout-shell: done
   4-3-upload-flow-with-pre-flight-constraints-and-bounded-wait-messaging: done
-  4-4-structured-error-panel-with-copy-request-id-and-live-regions: review
-  4-5-observation-list-and-section-grouping-direction-1-baseline: backlog
+  4-4-structured-error-panel-with-copy-request-id-and-live-regions: done
+  4-5-observation-list-and-section-grouping-direction-1-baseline: review
   4-6-disclaimer-strip-on-first-results-view: backlog
   4-7-responsive-polish-and-optional-lg-master-detail-layout: backlog
   4-8-wcag-2-2-aa-baseline-and-automated-accessibility-checks: backlog

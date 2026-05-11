@@ -1,6 +1,6 @@
 # Story 4.4: Structured error panel with copy Request ID and live regions
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -143,6 +143,7 @@ Composer (Cursor agent)
 ## Change Log
 
 - **2026-05-11:** Implemented Story **4.4** — structured upload error panel, parser + Vitest, polite announcements, UX-DR5 docs; story & sprint → **review**.
+- **2026-05-11:** Accepted complete — sprint **`4-4-*`** → **done**; Story **4.5** started next.
 
 ---
 

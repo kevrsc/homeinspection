@@ -81,6 +81,13 @@ Tune contrast pairs to meet audit targets; keep **semantic names** stable so uti
 - **Announcements:** `UploadPage` hosts a dedicated **`aria-live="polite"`** `sr-only` region fed by **`summarizeUploadFailureForAnnouncement`** — separate from `UploadProcessingStatus` **`role="status"`** processing copy so polite announcements stay distinct (partial **UX-DR8**).
 - **Precedence:** **Client** validation (`role="alert"`) vs **server** failures (`UploadErrorPanel`) — clearing file selection or starting a new submit clears server-side failure state without overwriting inline validation semantics.
 
+## Observation results list (Story 4.5 / UX-DR4)
+
+- **Shape:** **`parseUploadSuccess`** in `src/features/results/uploadSuccessModel.ts` validates **`sections[]`** with **`sectionName`** + **`observations[].text`** (aligned with OpenAPI / [`upload-success.json`](../../homeinspection-api/test/fixtures/json/upload-success.json)); **`pageCount`** optional at runtime.
+- **Layout:** **`ObservationResults`** — calm-neutral cards (`border-border`, `bg-surface`), **`h2`** per section (no sticky chrome in this story — defer sticky headers to **4.7/4.8** if spec demands without focus traps).
+- **Badges:** Each row includes an inline **Observation** label plus list icon — **visible text**, not color-only status (API does not yet expose severity; badge is informational).
+- **Keyboard:** Each observation **`<li tabIndex={0}>`** with **`focus-visible:outline-*`** matching link-style focus tokens — Tab moves through rows in DOM order.
+
 ## References
 
 - UX backlog: [`../../docs/ux-backlog.md`](../../docs/ux-backlog.md) (UX-DR9, DR4/DR5).
